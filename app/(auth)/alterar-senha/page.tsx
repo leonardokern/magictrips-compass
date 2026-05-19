@@ -14,10 +14,10 @@ export default function AlterarSenhaPage() {
           <Image
             src="/brand/compass-logo.png"
             alt="Compass — Magic Trips"
-            width={180}
-            height={180}
+            width={384}
+            height={384}
             priority
-            className="h-32 w-32 select-none object-contain"
+            className="h-64 w-64 select-none object-contain"
             style={{ filter: "invert(1) brightness(1.4)" }}
           />
 

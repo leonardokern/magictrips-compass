@@ -26,10 +26,10 @@ export default async function LoginPage({ searchParams }: Props) {
             <Image
               src="/brand/compass-logo.png"
               alt="Compass — Magic Trips"
-              width={180}
-              height={180}
+              width={384}
+              height={384}
               priority
-              className="h-32 w-32 select-none object-contain"
+              className="h-64 w-64 select-none object-contain"
               style={{ filter: "invert(1) brightness(1.4)" }}
             />
           </div>
@@ -50,25 +50,25 @@ export default async function LoginPage({ searchParams }: Props) {
         </div>
 
         {/* Footer com logos das empresas */}
-        <footer className="mt-8 flex w-full max-w-md flex-col items-center gap-4 pt-4">
+        <footer className="mt-8 flex w-full max-w-2xl flex-col items-center gap-5 pt-4">
           <p className="text-[10px] uppercase tracking-[0.2em] text-white/40">
             Plataforma interna de
           </p>
-          <div className="flex items-center justify-center gap-10">
+          <div className="flex items-center justify-center gap-12 md:gap-16">
             <Image
               src="/brand/magic-trips-white.png"
               alt="Magic Trips"
-              width={160}
-              height={56}
-              className="h-12 w-auto select-none object-contain opacity-70 transition-opacity hover:opacity-100"
+              width={320}
+              height={120}
+              className="h-24 w-auto select-none object-contain opacity-80 transition-opacity hover:opacity-100"
             />
-            <div className="h-8 w-px bg-white/10" aria-hidden />
+            <div className="h-16 w-px bg-white/15" aria-hidden />
             <Image
               src="/brand/del-mondo-white.png"
               alt="Del Mondo"
-              width={160}
-              height={56}
-              className="h-10 w-auto select-none object-contain opacity-70 transition-opacity hover:opacity-100"
+              width={320}
+              height={120}
+              className="h-24 w-auto select-none object-contain opacity-80 transition-opacity hover:opacity-100"
             />
           </div>
         </footer>
