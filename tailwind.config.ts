@@ -50,6 +50,16 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // ─────────────────────────────────────────────────────────────────────
+        // Paleta Nexus — cores oficiais das duas marcas combinadas
+        // Magic Trips (deep teal #004E5A) + Del Mondo (bright blue #1498D5)
+        // ─────────────────────────────────────────────────────────────────────
+        nexus: {
+          deep: "#004E5A",        // Magic Trips
+          "deep-soft": "#0A6573", // hover / aclaramento sutil
+          bright: "#1498D5",      // Del Mondo
+          "bright-soft": "#46B1E0", // hover
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

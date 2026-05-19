@@ -1,6 +1,6 @@
-# Compass
+# Nexus
 
-Plataforma interna de gestão da **MagicTrips** e **Del Mondo**.
+Plataforma interna de gestão da **Magic Trips** e **Del Mondo**.
 
 > Substitui o fluxo atual (Google Forms + WhatsApp + planilha + Otoos) por um sistema único: agente registra a venda → gerente aprova → parcelas geradas automaticamente → exportação para Otoos.
 
@@ -28,48 +28,52 @@ npm run dev
 
 Acesse `http://localhost:3000`.
 
+## Identidade visual
+
+| Token | Cor | Origem |
+|---|---|---|
+| `bg-nexus-deep` | `#004E5A` | Magic Trips (teal escuro) |
+| `bg-nexus-bright` | `#1498D5` | Del Mondo (azul brilhante) |
+
+Base sempre em **dark mode** (HSL teal-black). As duas cores acima são os accents principais — usadas em botões primários, sidebar ativo, badges e gradients.
+
 ## Estrutura
 
 ```
-magictrips-compass/
-├── app/                    # Next.js App Router
-│   ├── (auth)/login/       # tela de login
-│   └── (dashboard)/        # rotas autenticadas
-├── components/
-│   ├── ui/                 # shadcn/ui primitivos
-│   └── forms/              # formulários de domínio
-├── lib/
-│   ├── supabase/           # client.ts + server.ts + middleware.ts
-│   ├── hooks/              # useAuth, usePermissions
-│   └── utils/              # money, dates, expressions
-├── types/database.types.ts # gerado pelo Supabase CLI
-└── supabase/
-    ├── migrations/         # SQL versionado
-    └── seed.sql            # seed do usuário admin
+app/                    # Next.js App Router
+├── (auth)/login/       # tela de login
+└── (dashboard)/        # rotas autenticadas
+components/
+├── ui/                 # shadcn/ui primitivos
+├── dashboard/          # sidebar, header, KPI card
+└── <domínio>/          # clientes, fornecedores, usuários, perfis, comissões
+lib/
+├── supabase/           # client.ts + server.ts + middleware.ts
+├── hooks/              # use-current-user, use-permissions
+├── schemas/            # zod schemas por domínio
+├── utils/              # formatters, validators, password
+└── constants/          # catálogo de permissões
+types/database.types.ts # gerado pelo Supabase MCP
+supabase/
+├── migrations/         # SQL versionado
+└── seed.sql            # seed do usuário admin
 ```
 
 ## Banco de dados
 
-Schema completo aplicado via 13 migrations em `supabase/migrations/`. RLS habilitado em todas as 22 tabelas.
-
-Para regenerar os tipos TypeScript:
+Schema completo aplicado via migrations em `supabase/migrations/`. RLS habilitado em todas as tabelas. Para regenerar os tipos:
 
 ```bash
 # Via Supabase MCP:
 # generate_typescript_types → types/database.types.ts
 ```
 
-## Documentação
-
-- **CLAUDE.md** — contexto resumido do projeto (carregado automaticamente pelo Claude Code)
-- **Skill `magictrips`** — conhecimento completo em `Documents/Claude/Projects/Magic Trips/skill/`
-
 ## Convenções
 
 - Interface 100% em **português brasileiro**
 - Valores monetários: **R$** com 2 casas decimais
 - Datas: **DD/MM/YYYY** na UI, ISO 8601 no banco
-- Cores: sempre via **tokens semânticos** (`bg-background`, `text-foreground`...) — nunca `bg-white`, `text-black`
+- Cores: sempre via **tokens semânticos** (`bg-background`, `text-foreground`, `bg-nexus-deep`, `bg-nexus-bright`) — nunca `bg-white`, `text-black`
 - Vendas: **nunca deletar**, apenas cancelar
 - Audit: toda ação crítica gera registro em `audit_logs`
 

@@ -16,13 +16,12 @@ export default async function AlterarSenhaPage() {
       <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
         <div className="flex w-full max-w-sm flex-col items-center gap-8">
           <Image
-            src="/brand/compass-logo.png"
-            alt="Compass — Magic Trips"
+            src="/brand/nexus-logo.png"
+            alt="Nexus — Magic Trips"
             width={384}
             height={384}
             priority
-            className="h-52 w-52 select-none object-contain"
-            style={{ filter: "invert(1) brightness(1.4)" }}
+            className="h-52 w-52 select-none object-contain drop-shadow-[0_8px_32px_rgba(20,152,213,0.25)]"
           />
 
           <div className="w-full rounded-2xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl backdrop-blur-md">

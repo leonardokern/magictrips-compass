@@ -94,39 +94,39 @@ export default async function DashboardLayout({
   ].filter((s) => s.items.length > 0)
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-foreground">
-      {/* Halo radial no canto superior — toque sutil e moderno */}
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Halo radial — duas cores da marca Nexus se mesclando */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 z-0 opacity-60"
+        className="pointer-events-none fixed inset-0 z-0 opacity-70"
         style={{
           background:
-            "radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99,102,241,0.12), transparent 60%)",
+            "radial-gradient(ellipse 70% 45% at 25% -15%, rgba(20,152,213,0.18), transparent 60%), " +
+            "radial-gradient(ellipse 70% 45% at 90% -10%, rgba(0,78,90,0.28), transparent 65%)",
         }}
       />
 
       <div className="relative z-10 flex min-h-screen">
         {/* Sidebar flutuante */}
         <div className="hidden p-3 md:flex">
-          <aside className="sticky top-3 flex h-[calc(100vh-1.5rem)] w-64 flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-neutral-900/60 backdrop-blur-xl">
+          <aside className="sticky top-3 flex h-[calc(100vh-1.5rem)] w-64 flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-card/60 backdrop-blur-xl">
             {/* Brand */}
             <Link
               href="/dashboard"
               className="flex h-16 items-center gap-3 border-b border-white/[0.06] px-5"
             >
-              <div className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-indigo-500/30 bg-indigo-500/10">
+              <div className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-nexus-bright/30 bg-nexus-bright/10">
                 <Image
-                  src="/brand/compass-icon.png"
-                  alt="Compass"
+                  src="/brand/nexus-icon.png"
+                  alt="Nexus"
                   width={28}
                   height={28}
-                  className="h-5 w-5 select-none object-contain"
-                  style={{ filter: "invert(1) brightness(1.4)" }}
+                  className="h-6 w-6 select-none object-contain"
                 />
               </div>
               <div className="flex flex-col leading-tight">
                 <span className="text-sm font-semibold tracking-tight text-white">
-                  Compass
+                  Nexus
                 </span>
                 <span className="text-[10px] uppercase tracking-[0.18em] text-white/40">
                   Magic Trips
@@ -154,7 +154,7 @@ export default async function DashboardLayout({
         {/* Coluna direita */}
         <div className="flex flex-1 flex-col">
           {/* Header */}
-          <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-white/[0.06] bg-neutral-950/70 px-6 backdrop-blur-md md:px-8">
+          <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-white/[0.06] bg-background/70 px-6 backdrop-blur-md md:px-8">
             <h1 className="text-sm font-medium text-white/70">
               {user.empresa?.nome ?? "Administração geral"}
             </h1>

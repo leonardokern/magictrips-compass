@@ -101,7 +101,7 @@ export default async function FornecedoresPage({
         </div>
 
         {can(user, "fornecedores", "criar") && (
-          <Button asChild className="bg-indigo-500 text-white hover:bg-indigo-400">
+          <Button asChild className="bg-nexus-bright text-white hover:bg-nexus-bright-soft">
             <Link href="/fornecedores/novo">
               <Plus className="mr-2 h-4 w-4" />
               Novo fornecedor

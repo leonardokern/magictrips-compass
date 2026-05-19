@@ -1,5 +1,5 @@
 -- =============================================================================
--- seed.sql — Dados iniciais do Compass
+-- seed.sql — Dados iniciais do Nexus
 -- =============================================================================
 -- Aplicado uma única vez após as migrations. NÃO é uma migration (não vai em
 -- supabase/migrations/) porque envolve criação de usuário em auth.users com

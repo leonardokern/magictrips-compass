@@ -19,7 +19,7 @@ export function NovoUsuarioButton({ perfis, empresas }: Props) {
     <>
       <Button
         onClick={() => setOpen(true)}
-        className="bg-indigo-500 text-white hover:bg-indigo-400"
+        className="bg-nexus-bright text-white hover:bg-nexus-bright-soft"
       >
         <Plus className="mr-2 h-4 w-4" />
         Novo usuário

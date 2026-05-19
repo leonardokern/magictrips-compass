@@ -120,7 +120,7 @@ export default async function ClientesPage({
         </div>
 
         {can(user, "clientes", "criar") && (
-          <Button asChild className="bg-indigo-500 text-white hover:bg-indigo-400">
+          <Button asChild className="bg-nexus-bright text-white hover:bg-nexus-bright-soft">
             <Link href="/clientes/novo">
               <Plus className="mr-2 h-4 w-4" />
               Novo cliente

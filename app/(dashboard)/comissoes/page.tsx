@@ -22,15 +22,17 @@ type Regra = {
 type Empresa = { id: string; nome: string; slug: string }
 
 const EMPRESA_ACCENT: Record<string, { ring: string; bg: string; chip: string }> = {
+  // Magic Trips: cor oficial teal escuro (#004E5A → nexus-deep)
   "magic-trips": {
-    ring: "from-indigo-500/30 via-indigo-500/10 to-transparent",
-    bg: "bg-indigo-500/10",
-    chip: "border-indigo-500/30 bg-indigo-500/15 text-indigo-300",
+    ring: "from-nexus-deep/40 via-nexus-deep/15 to-transparent",
+    bg: "bg-nexus-deep/15",
+    chip: "border-nexus-deep/40 bg-nexus-deep/20 text-nexus-bright",
   },
+  // Del Mondo: cor oficial azul brilhante (#1498D5 → nexus-bright)
   "del-mondo": {
-    ring: "from-amber-500/30 via-amber-500/10 to-transparent",
-    bg: "bg-amber-500/10",
-    chip: "border-amber-500/30 bg-amber-500/15 text-amber-300",
+    ring: "from-nexus-bright/30 via-nexus-bright/10 to-transparent",
+    bg: "bg-nexus-bright/10",
+    chip: "border-nexus-bright/30 bg-nexus-bright/15 text-nexus-bright",
   },
 }
 
@@ -186,7 +188,7 @@ export default async function ComissoesPage() {
       <Card className="border-white/[0.06] bg-white/[0.02]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base text-white">
-            <Sparkles className="h-4 w-4 text-indigo-400" />
+            <Sparkles className="h-4 w-4 text-nexus-bright" />
             Como a régua funciona
           </CardTitle>
         </CardHeader>

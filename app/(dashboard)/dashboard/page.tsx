@@ -70,7 +70,7 @@ export default async function DashboardPage() {
             <span className="ml-2">👋</span>
           </h2>
           <p className="mt-1 text-sm text-white/55">
-            Visão geral do Compass · {new Date().toLocaleDateString("pt-BR", {
+            Visão geral do Nexus · {new Date().toLocaleDateString("pt-BR", {
               day: "2-digit",
               month: "long",
               year: "numeric",
@@ -79,7 +79,7 @@ export default async function DashboardPage() {
         </div>
 
         {can(user, "clientes", "criar") && (
-          <Button asChild className="bg-indigo-500 text-white hover:bg-indigo-400">
+          <Button asChild className="bg-nexus-bright text-white hover:bg-nexus-bright-soft">
             <Link href="/clientes/novo">
               <Plus className="mr-2 h-4 w-4" />
               Novo cliente
@@ -101,7 +101,7 @@ export default async function DashboardPage() {
             value={clientesAtivos ?? 0}
             hint={`de ${totalClientes ?? 0} cadastrados`}
             icon={Users}
-            accent="indigo"
+            accent="nexus"
             href="/clientes?status=ativo"
           />
           <KpiCard
@@ -287,7 +287,7 @@ function EmptyState({
         <Button
           asChild
           size="sm"
-          className="mt-4 bg-indigo-500 text-white hover:bg-indigo-400"
+          className="mt-4 bg-nexus-bright text-white hover:bg-nexus-bright-soft"
         >
           <Link href={actionHref}>{actionLabel}</Link>
         </Button>
@@ -336,7 +336,7 @@ function SkeletonBars() {
   const items = [
     { label: "Aéreo", value: 78, color: "from-emerald-500/40 to-emerald-500/0" },
     { label: "Pacote", value: 62, color: "from-sky-500/40 to-sky-500/0" },
-    { label: "Hotel", value: 45, color: "from-indigo-500/40 to-indigo-500/0" },
+    { label: "Hotel", value: 45, color: "from-nexus-bright/40 to-nexus-bright/0" },
     { label: "Cruzeiro", value: 28, color: "from-violet-500/40 to-violet-500/0" },
     { label: "Outros", value: 12, color: "from-amber-500/40 to-amber-500/0" },
   ]

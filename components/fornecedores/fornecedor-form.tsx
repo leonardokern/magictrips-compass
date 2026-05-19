@@ -162,7 +162,7 @@ export function FornecedorForm(props: Props) {
         <Button
           type="submit"
           disabled={isPending}
-          className="bg-indigo-500 text-white hover:bg-indigo-400"
+          className="bg-nexus-bright text-white hover:bg-nexus-bright-soft"
         >
           {isPending
             ? "Salvando..."

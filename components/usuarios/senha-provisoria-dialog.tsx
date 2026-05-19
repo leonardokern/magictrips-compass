@@ -92,7 +92,7 @@ export function SenhaProvisoriaDialog({
         <DialogFooter>
           <Button
             onClick={onClose}
-            className="bg-indigo-500 text-white hover:bg-indigo-400"
+            className="bg-nexus-bright text-white hover:bg-nexus-bright-soft"
           >
             Concluir
           </Button>

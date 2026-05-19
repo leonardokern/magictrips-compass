@@ -81,7 +81,7 @@ export function RegraInput({ id, initialValue, readOnly, accent }: Props) {
         className={cn(
           "h-9 w-full rounded-md border bg-white/[0.04] pl-3 pr-14 text-right text-sm font-semibold tabular-nums text-white transition-all",
           "focus:outline-none focus:ring-1",
-          status === "saving" && "border-indigo-500/40 ring-indigo-500/20",
+          status === "saving" && "border-nexus-bright/40 ring-nexus-bright/20",
           status === "saved" && "border-emerald-500/40 ring-emerald-500/20",
           status === "error" && "border-red-500/40 ring-red-500/20",
           status === "idle" && "border-white/10 focus:border-white/30 focus:ring-white/20",
@@ -93,7 +93,7 @@ export function RegraInput({ id, initialValue, readOnly, accent }: Props) {
       />
       <div className="pointer-events-none absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1 text-xs text-white/45">
         {status === "saving" && (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-400" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-nexus-bright" />
         )}
         {status === "saved" && (
           <Check className="h-3.5 w-3.5 text-emerald-400" />

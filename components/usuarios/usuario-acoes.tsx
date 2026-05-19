@@ -110,7 +110,7 @@ export function UsuarioAcoes({
               </DialogClose>
               <Button
                 onClick={handleReset}
-                className="bg-indigo-500 text-white hover:bg-indigo-400"
+                className="bg-nexus-bright text-white hover:bg-nexus-bright-soft"
               >
                 Gerar nova senha
               </Button>

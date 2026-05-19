@@ -6,7 +6,7 @@ export function PerfilSistemaBadge({ sistema }: { sistema: boolean }) {
   return (
     <Badge
       variant="outline"
-      className="border-indigo-500/30 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/15"
+      className="border-nexus-bright/30 bg-nexus-bright/15 text-nexus-bright hover:bg-nexus-bright/15"
     >
       Sistema
     </Badge>

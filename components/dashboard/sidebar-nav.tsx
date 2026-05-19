@@ -75,7 +75,7 @@ export function SidebarNav({ sections }: Props) {
                 className={cn(
                   "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
                   ativo
-                    ? "bg-indigo-500/15 text-white shadow-[inset_0_0_0_1px_rgba(99,102,241,0.18)]"
+                    ? "bg-nexus-bright/15 text-white shadow-[inset_0_0_0_1px_rgba(20,152,213,0.25)]"
                     : "text-white/55 hover:bg-white/[0.04] hover:text-white",
                 )}
               >
@@ -83,7 +83,7 @@ export function SidebarNav({ sections }: Props) {
                   className={cn(
                     "h-4 w-4 shrink-0 transition-colors",
                     ativo
-                      ? "text-indigo-400"
+                      ? "text-nexus-bright"
                       : "text-white/50 group-hover:text-white/80",
                   )}
                 />

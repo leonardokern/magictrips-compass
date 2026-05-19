@@ -43,34 +43,40 @@
   }
 
   .dark {
-    /* Paleta neutra profunda — alinhada ao bg-neutral-950 do login */
-    --background: 0 0% 4%;          /* neutral-950 */
-    --foreground: 0 0% 98%;          /* near-white */
+    /*
+     * Paleta Nexus — base dark profunda com tons de teal.
+     * Hue-base ~190 (teal) bem dessaturado para o background,
+     * mantendo coerência com #004E5A (deep) e #1498D5 (bright).
+     */
+    --background: 195 30% 5%;       /* dark teal-black */
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 7%;                 /* card slightly lifted */
+    --card: 195 22% 8%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 9%;
+    --popover: 195 22% 10%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 0 0% 98%;             /* white (matches Entrar button) */
-    --primary-foreground: 0 0% 9%;
+    /* primary = teal escuro Magic Trips (#004E5A → 188 100% 18%) */
+    --primary: 188 100% 18%;
+    --primary-foreground: 0 0% 98%;
 
-    --secondary: 0 0% 14%;
+    --secondary: 195 15% 15%;
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 0 0% 14%;
-    --muted-foreground: 0 0% 65%;    /* white/65 */
+    --muted: 195 15% 15%;
+    --muted-foreground: 195 10% 65%;
 
-    --accent: 0 0% 14%;
+    /* accent = bright blue Del Mondo (#1498D5 → 201 79% 46%) */
+    --accent: 201 79% 46%;
     --accent-foreground: 0 0% 98%;
 
     --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 16%;              /* sutil — equivalente a white/10 sólido */
-    --input: 0 0% 14%;
-    --ring: 0 0% 80%;
+    --border: 195 18% 16%;
+    --input: 195 15% 14%;
+    --ring: 201 79% 60%;
   }
 }
 

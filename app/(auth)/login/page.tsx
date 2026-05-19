@@ -21,16 +21,15 @@ export default async function LoginPage({ searchParams }: Props) {
         <div aria-hidden className="hidden md:block md:h-8" />
 
         <div className="flex w-full max-w-sm flex-col items-center gap-8">
-          {/* Logo principal Compass (PNG preto → invertido pra branco) */}
+          {/* Logo principal Nexus (cores nativas das duas marcas combinadas) */}
           <div className="flex flex-col items-center gap-2">
             <Image
-              src="/brand/compass-logo.png"
-              alt="Compass — Magic Trips"
+              src="/brand/nexus-logo.png"
+              alt="Nexus — Magic Trips"
               width={384}
               height={384}
               priority
-              className="h-52 w-52 select-none object-contain"
-              style={{ filter: "invert(1) brightness(1.4)" }}
+              className="h-52 w-52 select-none object-contain drop-shadow-[0_8px_32px_rgba(20,152,213,0.25)]"
             />
           </div>
 

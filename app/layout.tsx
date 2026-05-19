@@ -4,10 +4,10 @@ import "./globals.css"
 
 export const metadata: Metadata = {
   title: {
-    default: "Compass — MagicTrips",
-    template: "%s · Compass",
+    default: "Nexus — Magic Trips",
+    template: "%s · Nexus",
   },
-  description: "Plataforma interna de gestão da MagicTrips e Del Mondo.",
+  description: "Plataforma interna de gestão da Magic Trips e Del Mondo.",
 }
 
 export default function RootLayout({

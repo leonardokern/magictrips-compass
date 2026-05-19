@@ -1,4 +1,4 @@
-# Migrations — Compass
+# Migrations — Nexus
 
 Migrations versionadas do banco PostgreSQL (Supabase).
 

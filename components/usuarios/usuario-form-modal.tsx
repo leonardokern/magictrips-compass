@@ -174,12 +174,12 @@ export function UsuarioFormModal(props: Props) {
             <DialogTitle className="flex items-center gap-2 text-base">
               {isCreate ? (
                 <>
-                  <User2 className="h-4 w-4 text-indigo-400" />
+                  <User2 className="h-4 w-4 text-nexus-bright" />
                   Novo usuário
                 </>
               ) : (
                 <>
-                  <User2 className="h-4 w-4 text-indigo-400" />
+                  <User2 className="h-4 w-4 text-nexus-bright" />
                   Editar usuário
                 </>
               )}
@@ -194,7 +194,7 @@ export function UsuarioFormModal(props: Props) {
           <form onSubmit={onSubmit} className="space-y-5">
             {/* Preview do avatar + nome */}
             <div className="flex items-center gap-4 rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-indigo-500/30 bg-indigo-500/15 text-sm font-semibold text-indigo-300">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-nexus-bright/30 bg-nexus-bright/15 text-sm font-semibold text-nexus-bright">
                 {iniciaisDisplay || "—"}
               </div>
               <div className="flex-1 space-y-1">
@@ -311,7 +311,7 @@ export function UsuarioFormModal(props: Props) {
               <Button
                 type="submit"
                 disabled={isPending}
-                className="bg-indigo-500 text-white hover:bg-indigo-400"
+                className="bg-nexus-bright text-white hover:bg-nexus-bright-soft"
               >
                 {isPending
                   ? "Salvando..."
