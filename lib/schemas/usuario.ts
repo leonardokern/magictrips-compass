@@ -4,7 +4,7 @@ import { emailValido } from "@/lib/utils/validators"
 /**
  * Schema canônico de usuário (create + edit).
  * Senha NÃO está aqui — é gerada pelo Server Action e retornada ao admin
- * pra cópia manual.
+ * pra cópia manual. Iniciais são auto-derivadas do nome (não exposto na UI).
  */
 export const usuarioCreateSchema = z.object({
   nome: z.string().trim().min(2, "Nome muito curto").max(120, "Nome muito longo"),
@@ -14,13 +14,9 @@ export const usuarioCreateSchema = z.object({
     .toLowerCase()
     .refine(emailValido, "E-mail inválido"),
   perfil_id: z.string().uuid("Perfil inválido"),
-  empresa_id: z.string().uuid().nullable(),
-  iniciais: z
-    .string()
-    .trim()
-    .max(4, "Máximo 4 caracteres")
-    .optional()
-    .or(z.literal("")),
+  empresa_ids: z
+    .array(z.string().uuid())
+    .min(1, "Selecione ao menos uma empresa"),
 })
 
 export const usuarioUpdateSchema = usuarioCreateSchema.partial({

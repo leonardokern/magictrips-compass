@@ -33,18 +33,14 @@ export default async function EditarClientePage({
 
   if (!cliente) notFound()
 
-  const isAdminMaster = user.empresa === null
-  let empresas: { id: string; nome: string }[] = []
-  if (isAdminMaster) {
-    const { data } = await supabase
-      .from("empresas")
-      .select("id, nome")
-      .eq("ativo", true)
-      .order("nome")
-    empresas = data ?? []
-  } else if (user.empresa) {
-    empresas = [{ id: user.empresa.id, nome: user.empresa.nome }]
-  }
+  // Empresas disponíveis: todas as ativas (RLS filtra pelas que o usuário pode ver)
+  const { data: empresasData } = await supabase
+    .from("empresas")
+    .select("id, nome")
+    .eq("ativo", true)
+    .order("nome")
+  const empresas = empresasData ?? []
+  const empresaUnica = empresas.length === 1 ? empresas[0]! : null
 
   const initial: Partial<ClienteFormValues> & { id: string } = {
     id: cliente.id,
@@ -83,7 +79,7 @@ export default async function EditarClientePage({
         mode="edit"
         empresas={empresas}
         defaultEmpresaId={cliente.empresa_id}
-        lockEmpresa={!isAdminMaster}
+        lockEmpresa={Boolean(empresaUnica)}
         initial={initial}
       />
     </div>

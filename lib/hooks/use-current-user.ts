@@ -4,6 +4,12 @@ import type { Database } from "@/types/database.types"
 
 export type Permissoes = Record<string, Record<string, boolean>>
 
+export type CurrentUserEmpresa = {
+  id: string
+  nome: string
+  slug: string
+}
+
 export type CurrentUser = {
   id: string
   nome: string
@@ -11,11 +17,10 @@ export type CurrentUser = {
   iniciais: string | null
   ativo: boolean
   forcePasswordChange: boolean
-  empresa: {
-    id: string
-    nome: string
-    slug: string
-  } | null
+  /** Empresas às quais o usuário tem acesso (1+). */
+  empresas: CurrentUserEmpresa[]
+  /** True quando o usuário tem acesso a todas as empresas ativas. */
+  acessaTodasEmpresas: boolean
   perfil: {
     id: string
     nome: string
@@ -25,12 +30,8 @@ export type CurrentUser = {
 }
 
 /**
- * Carrega o usuário logado com perfil + empresa.
- * Memoizado por request via React `cache` — várias chamadas no mesmo render
- * fazem só uma query (na real, até 3 paralelas, mas só uma vez).
- *
- * Estratégia: 3 queries paralelas em vez de 1 join, para evitar quirks do
- * type inference do supabase-js em modo strict.
+ * Carrega o usuário logado com perfil + empresas (multi-empresa via N:N).
+ * Memoizado por request via React `cache`.
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = await createClient()
@@ -43,30 +44,37 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   const { data: u, error: userErr } = await supabase
     .from("usuarios")
-    .select(
-      "id, nome, email, iniciais, ativo, force_password_change, perfil_id, empresa_id",
-    )
+    .select("id, nome, email, iniciais, ativo, force_password_change, perfil_id")
     .eq("id", authUser.id)
     .single()
 
   if (userErr || !u) return null
 
-  const [perfilRes, empresaRes] = await Promise.all([
+  const [perfilRes, empresasRes, todasEmpresasRes] = await Promise.all([
     supabase
       .from("perfis_acesso")
       .select("id, nome, sistema, permissoes")
       .eq("id", u.perfil_id)
       .single(),
-    u.empresa_id
-      ? supabase
-          .from("empresas")
-          .select("id, nome, slug")
-          .eq("id", u.empresa_id)
-          .single()
-      : Promise.resolve({ data: null, error: null } as const),
+    supabase
+      .from("usuarios_empresas")
+      .select("empresa:empresas(id, nome, slug)")
+      .eq("usuario_id", u.id),
+    supabase
+      .from("empresas")
+      .select("id", { count: "exact", head: true })
+      .eq("ativo", true),
   ])
 
   if (perfilRes.error || !perfilRes.data) return null
+
+  const empresas: CurrentUserEmpresa[] = (empresasRes.data ?? [])
+    .map((row) => row.empresa)
+    .filter((e): e is CurrentUserEmpresa => e !== null)
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+
+  const totalEmpresas = todasEmpresasRes.count ?? 0
+  const acessaTodasEmpresas = empresas.length > 0 && empresas.length >= totalEmpresas
 
   return {
     id: u.id,
@@ -75,13 +83,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     iniciais: u.iniciais,
     ativo: u.ativo,
     forcePasswordChange: u.force_password_change,
-    empresa: empresaRes.data
-      ? {
-          id: empresaRes.data.id,
-          nome: empresaRes.data.nome,
-          slug: empresaRes.data.slug,
-        }
-      : null,
+    empresas,
+    acessaTodasEmpresas,
     perfil: {
       id: perfilRes.data.id,
       nome: perfilRes.data.nome,

@@ -6,16 +6,15 @@ import { Button } from "@/components/ui/button"
 import { UsuarioFormModal } from "./usuario-form-modal"
 
 type Perfil = { id: string; nome: string }
-type Empresa = { id: string; nome: string }
+type Empresa = { id: string; nome: string; slug: string }
 
 type Props = {
   id: string
   initial: {
     nome: string
     email: string
-    iniciais: string | null
     perfil_id: string
-    empresa_id: string | null
+    empresa_ids: string[]
   }
   perfis: Perfil[]
   empresas: Empresa[]

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Building2, Mail, ShieldCheck, User2 } from "lucide-react"
 import { toast } from "sonner"
@@ -24,14 +24,14 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { SenhaProvisoriaDialog } from "./senha-provisoria-dialog"
-import { derivarIniciais } from "@/lib/utils/password"
+import { EmpresaSelector } from "./empresa-selector"
 import {
   createUsuario,
   updateUsuario,
 } from "@/app/(dashboard)/usuarios/actions"
 
 type Perfil = { id: string; nome: string }
-type Empresa = { id: string; nome: string }
+type Empresa = { id: string; nome: string; slug: string }
 
 type ModeProps =
   | {
@@ -43,9 +43,8 @@ type ModeProps =
       initial: {
         nome: string
         email: string
-        iniciais: string | null
         perfil_id: string
-        empresa_id: string | null
+        empresa_ids: string[]
       }
     }
 
@@ -61,19 +60,15 @@ type Props = ModeProps & {
 type FormState = {
   nome: string
   email: string
-  iniciais: string
-  iniciaisManual: boolean
   perfil_id: string
-  empresa_id: string | null
+  empresa_ids: string[]
 }
 
 const EMPTY: FormState = {
   nome: "",
   email: "",
-  iniciais: "",
-  iniciaisManual: false,
   perfil_id: "",
-  empresa_id: null,
+  empresa_ids: [],
 }
 
 export function UsuarioFormModal(props: Props) {
@@ -92,10 +87,8 @@ export function UsuarioFormModal(props: Props) {
       setV({
         nome: props.initial.nome,
         email: props.initial.email,
-        iniciais: props.initial.iniciais ?? "",
-        iniciaisManual: Boolean(props.initial.iniciais),
         perfil_id: props.initial.perfil_id,
-        empresa_id: props.initial.empresa_id,
+        empresa_ids: props.initial.empresa_ids,
       })
     } else {
       setV(EMPTY)
@@ -103,33 +96,30 @@ export function UsuarioFormModal(props: Props) {
     setErrors({})
   }, [props.open, props.mode, isCreate])
 
-  // perfil selecionado → controla obrigatoriedade de empresa
-  const perfilSelecionado = useMemo(
-    () => props.perfis.find((p) => p.id === v.perfil_id),
-    [props.perfis, v.perfil_id],
-  )
-  const ehAdmin = perfilSelecionado?.nome === "Administrador"
-
-  const iniciaisDisplay = v.iniciaisManual
-    ? v.iniciais
-    : v.iniciais || derivarIniciais(v.nome)
-
   function update<K extends keyof FormState>(k: K, val: FormState[K]) {
     setV((s) => ({ ...s, [k]: val }))
     if (errors[k as string]) setErrors((e) => ({ ...e, [k as string]: "" }))
   }
 
+  // Iniciais derivadas só pro preview do avatar — não são salvas
+  const previewIniciais = derivarIniciaisLocal(v.nome)
+
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErrors({})
+
+    if (v.empresa_ids.length === 0) {
+      setErrors({ empresa_ids: "Selecione ao menos uma empresa." })
+      toast.error("Selecione ao menos uma empresa.")
+      return
+    }
 
     startTransition(async () => {
       const payload = {
         nome: v.nome,
         email: v.email,
         perfil_id: v.perfil_id,
-        empresa_id: ehAdmin ? null : v.empresa_id,
-        iniciais: iniciaisDisplay,
+        empresa_ids: v.empresa_ids,
       }
 
       if (isCreate) {
@@ -172,17 +162,8 @@ export function UsuarioFormModal(props: Props) {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
-              {isCreate ? (
-                <>
-                  <User2 className="h-4 w-4 text-nexus-bright" />
-                  Novo usuário
-                </>
-              ) : (
-                <>
-                  <User2 className="h-4 w-4 text-nexus-bright" />
-                  Editar usuário
-                </>
-              )}
+              <User2 className="h-4 w-4 text-nexus-bright" />
+              {isCreate ? "Novo usuário" : "Editar usuário"}
             </DialogTitle>
             <DialogDescription>
               {isCreate
@@ -195,7 +176,7 @@ export function UsuarioFormModal(props: Props) {
             {/* Preview do avatar + nome */}
             <div className="flex items-center gap-4 rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-nexus-bright/30 bg-nexus-bright/15 text-sm font-semibold text-nexus-bright">
-                {iniciaisDisplay || "—"}
+                {previewIniciais || "—"}
               </div>
               <div className="flex-1 space-y-1">
                 <Input
@@ -211,7 +192,7 @@ export function UsuarioFormModal(props: Props) {
               </div>
             </div>
 
-            {/* E-mail (só create — edit não permite mudar) */}
+            {/* E-mail */}
             <Field
               label="E-mail"
               icon={<Mail className="h-3.5 w-3.5" />}
@@ -232,73 +213,41 @@ export function UsuarioFormModal(props: Props) {
               )}
             </Field>
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* Perfil */}
-              <Field
-                label="Perfil"
-                icon={<ShieldCheck className="h-3.5 w-3.5" />}
-                error={errors.perfil_id}
+            {/* Perfil */}
+            <Field
+              label="Perfil"
+              icon={<ShieldCheck className="h-3.5 w-3.5" />}
+              error={errors.perfil_id}
+            >
+              <Select
+                value={v.perfil_id || undefined}
+                onValueChange={(val) => update("perfil_id", val)}
               >
-                <Select
-                  value={v.perfil_id || undefined}
-                  onValueChange={(val) => update("perfil_id", val)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {props.perfis.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um perfil" />
+                </SelectTrigger>
+                <SelectContent>
+                  {props.perfis.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
 
-              {/* Empresa */}
-              <Field
-                label="Empresa"
-                icon={<Building2 className="h-3.5 w-3.5" />}
-                error={errors.empresa_id}
-                hint={ehAdmin ? "Acessa todas" : undefined}
-              >
-                <Select
-                  value={v.empresa_id ?? (ehAdmin ? "todas" : undefined)}
-                  onValueChange={(val) =>
-                    update("empresa_id", val === "todas" ? null : val)
-                  }
-                  disabled={ehAdmin}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ehAdmin && <SelectItem value="todas">Todas</SelectItem>}
-                    {props.empresas.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-
-            {/* Iniciais */}
-            <Field label="Iniciais" hint="Auto-derivadas do nome. Override opcional.">
-              <Input
-                value={iniciaisDisplay}
-                onChange={(e) => {
-                  setV((s) => ({
-                    ...s,
-                    iniciaisManual: true,
-                    iniciais: e.target.value.toUpperCase(),
-                  }))
-                }}
-                maxLength={4}
-                placeholder="MM"
-                className="w-24 text-center font-mono font-semibold tabular-nums"
+            {/* Empresas — multi-select com logos */}
+            <Field
+              label="Empresas com acesso"
+              icon={<Building2 className="h-3.5 w-3.5" />}
+              error={errors.empresa_ids}
+              hint="Toque na logo para selecionar. Marcar todas = acesso completo."
+            >
+              <EmpresaSelector
+                empresas={props.empresas}
+                selecionadas={v.empresa_ids}
+                onChange={(ids) => update("empresa_ids", ids)}
+                disabled={isPending}
               />
             </Field>
 
@@ -367,4 +316,15 @@ function Field({
       {error && <p className="mt-1 text-[11px] text-destructive">{error}</p>}
     </div>
   )
+}
+
+// Iniciais locais (apenas preview do avatar — não enviadas ao backend)
+function derivarIniciaisLocal(nome: string): string {
+  const parts = nome
+    .trim()
+    .split(/\s+/)
+    .filter((p) => p.length > 0 && !/^(da|de|do|das|dos|e)$/i.test(p))
+  if (parts.length === 0) return ""
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase()
+  return `${parts[0]![0]}${parts[parts.length - 1]![0]}`.toUpperCase()
 }

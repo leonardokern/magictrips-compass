@@ -42,22 +42,31 @@ export default async function UsuarioDetailPage({
   const { data: u } = await supabase
     .from("usuarios")
     .select(
-      "id, nome, email, iniciais, ativo, force_password_change, perfil_id, empresa_id, created_at",
+      "id, nome, email, iniciais, ativo, force_password_change, perfil_id, created_at",
     )
     .eq("id", id)
     .maybeSingle()
 
   if (!u) notFound()
 
-  const [{ data: perfil }, { data: empresa }, perfisRes, empresasRes] =
+  const [{ data: perfil }, perfisRes, empresasRes, { data: rels }] =
     await Promise.all([
       supabase.from("perfis_acesso").select("nome").eq("id", u.perfil_id).single(),
-      u.empresa_id
-        ? supabase.from("empresas").select("nome").eq("id", u.empresa_id).single()
-        : Promise.resolve({ data: null }),
       supabase.from("perfis_acesso").select("id, nome").eq("ativo", true).order("nome"),
-      supabase.from("empresas").select("id, nome").eq("ativo", true).order("nome"),
+      supabase.from("empresas").select("id, nome, slug").eq("ativo", true).order("nome"),
+      supabase
+        .from("usuarios_empresas")
+        .select("empresa_id, empresa:empresas(id, nome, slug)")
+        .eq("usuario_id", u.id),
     ])
+
+  const empresasDoUsuario = (rels ?? [])
+    .map((r) => r.empresa)
+    .filter((e): e is { id: string; nome: string; slug: string } => e !== null)
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+  const empresaIds = empresasDoUsuario.map((e) => e.id)
+  const totalEmpresas = (empresasRes.data ?? []).length
+  const acessaTodas = empresaIds.length >= totalEmpresas && totalEmpresas > 0
 
   const isSelf = u.id === user.id
   const permEditar = can(user, "usuarios", "editar")
@@ -80,9 +89,8 @@ export default async function UsuarioDetailPage({
             initial={{
               nome: u.nome,
               email: u.email,
-              iniciais: u.iniciais,
               perfil_id: u.perfil_id,
-              empresa_id: u.empresa_id,
+              empresa_ids: empresaIds,
             }}
             perfis={perfisRes.data ?? []}
             empresas={empresasRes.data ?? []}
@@ -155,9 +163,25 @@ export default async function UsuarioDetailPage({
             <Row icon={<ShieldCheck className="h-4 w-4" />} label="Perfil">
               <PerfilUsuarioBadge nome={perfil?.nome ?? "—"} />
             </Row>
-            <Row icon={<Building2 className="h-4 w-4" />} label="Empresa">
-              {empresa?.nome ?? (
-                <span className="text-white/60">Todas (Administrador)</span>
+            <Row
+              icon={<Building2 className="h-4 w-4" />}
+              label={empresasDoUsuario.length === 1 ? "Empresa" : "Empresas"}
+            >
+              {acessaTodas ? (
+                <span className="text-white/80">Todas ({totalEmpresas})</span>
+              ) : empresasDoUsuario.length === 0 ? (
+                <span className="text-white/60">Nenhuma</span>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {empresasDoUsuario.map((e) => (
+                    <span
+                      key={e.id}
+                      className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs text-white"
+                    >
+                      {e.nome}
+                    </span>
+                  ))}
+                </div>
               )}
             </Row>
           </CardContent>

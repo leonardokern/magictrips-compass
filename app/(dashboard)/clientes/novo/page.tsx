@@ -15,21 +15,19 @@ export default async function NovoClientePage() {
   const user = await requireCurrentUser()
   if (!can(user, "clientes", "criar")) redirect("/clientes")
 
-  const isAdminMaster = user.empresa === null
+  const isAdminMaster = user.acessaTodasEmpresas
   const supabase = await createClient()
 
-  // Empresas disponíveis
-  let empresas: { id: string; nome: string }[] = []
-  if (isAdminMaster) {
-    const { data } = await supabase
-      .from("empresas")
-      .select("id, nome")
-      .eq("ativo", true)
-      .order("nome")
-    empresas = data ?? []
-  } else if (user.empresa) {
-    empresas = [{ id: user.empresa.id, nome: user.empresa.nome }]
-  }
+  // Empresas disponíveis: todas as ativas (RLS filtra pelas que o usuário pode ver)
+  const { data: empresasData } = await supabase
+    .from("empresas")
+    .select("id, nome")
+    .eq("ativo", true)
+    .order("nome")
+  const empresas = empresasData ?? []
+
+  // Trava empresa quando o usuário só tem 1 (default = essa única)
+  const empresaUnica = empresas.length === 1 ? empresas[0]! : null
 
   return (
     <div className="space-y-6">
@@ -53,8 +51,8 @@ export default async function NovoClientePage() {
       <ClienteForm
         mode="create"
         empresas={empresas}
-        defaultEmpresaId={user.empresa?.id}
-        lockEmpresa={!isAdminMaster}
+        defaultEmpresaId={empresaUnica?.id}
+        lockEmpresa={Boolean(empresaUnica)}
       />
     </div>
   )

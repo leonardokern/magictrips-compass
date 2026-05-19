@@ -58,7 +58,7 @@ export default async function ClientesPage({
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
 
-  const isAdminMaster = user.empresa === null
+  const isAdminMaster = user.acessaTodasEmpresas
 
   const supabase = await createClient()
 

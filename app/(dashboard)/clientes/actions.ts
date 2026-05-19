@@ -66,7 +66,7 @@ export async function createCliente(
     return { ok: false, error: error?.message ?? "Falha ao salvar cliente." }
   }
 
-  await logAudit(user.id, user.empresa?.id ?? values.empresa_id, "criar", novo.id, null, values)
+  await logAudit(user.id, values.empresa_id, "criar", novo.id, null, values)
 
   revalidatePath("/clientes")
   return { ok: true, data: { id: novo.id } }

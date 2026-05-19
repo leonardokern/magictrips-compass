@@ -139,13 +139,19 @@ export default async function DashboardLayout({
               <SidebarNav sections={sections} />
             </div>
 
-            {/* Footer — contexto de empresa */}
+            {/* Footer — contexto de empresa(s) */}
             <div className="border-t border-white/[0.06] px-5 py-4">
               <p className="text-[10px] uppercase tracking-[0.18em] text-white/40">
-                {user.empresa ? "Empresa" : "Acesso"}
+                {user.acessaTodasEmpresas
+                  ? "Acesso"
+                  : user.empresas.length === 1
+                    ? "Empresa"
+                    : "Empresas"}
               </p>
               <p className="mt-1 text-sm font-medium text-white">
-                {user.empresa?.nome ?? "Todas as empresas"}
+                {user.acessaTodasEmpresas
+                  ? "Todas as empresas"
+                  : user.empresas.map((e) => e.nome).join(" · ")}
               </p>
             </div>
           </aside>
@@ -156,7 +162,11 @@ export default async function DashboardLayout({
           {/* Header */}
           <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-white/[0.06] bg-background/70 px-6 backdrop-blur-md md:px-8">
             <h1 className="text-sm font-medium text-white/70">
-              {user.empresa?.nome ?? "Administração geral"}
+              {user.acessaTodasEmpresas
+                ? "Administração geral"
+                : user.empresas.length === 1
+                  ? user.empresas[0]!.nome
+                  : user.empresas.map((e) => e.nome).join(" · ")}
             </h1>
             <UserMenu
               nome={user.nome}

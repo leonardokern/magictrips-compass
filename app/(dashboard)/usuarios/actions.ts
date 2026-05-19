@@ -38,17 +38,15 @@ export async function createUsuario(
 
   const values = parsed.data
   const senhaProvisoria = gerarSenhaProvisoria(12)
-  const iniciais = values.iniciais?.trim() || derivarIniciais(values.nome)
+  const iniciais = derivarIniciais(values.nome)
 
   const supabase = await createClient()
-  // Cast pra contornar limitação dos types gerados: a função aceita NULL em
-  // p_empresa_id (Administrador), mas a tipagem inferida espera string.
   const { data, error } = await supabase.rpc("criar_usuario_admin", {
     p_email: values.email,
     p_senha: senhaProvisoria,
     p_nome: values.nome,
     p_perfil_id: values.perfil_id,
-    p_empresa_id: values.empresa_id as string,
+    p_empresa_ids: values.empresa_ids,
     p_iniciais: iniciais,
   })
 
@@ -97,46 +95,52 @@ export async function updateUsuario(
 
   if (!antes) return { ok: false, error: "Usuário não encontrado." }
 
-  // Se mudar perfil, validar coerência empresa_id
-  if (v.perfil_id) {
-    const { data: perfil } = await supabase
-      .from("perfis_acesso")
-      .select("nome")
-      .eq("id", v.perfil_id)
-      .single()
-    if (!perfil) return { ok: false, error: "Perfil inválido." }
-    if (perfil.nome !== "Administrador" && v.empresa_id === null) {
-      return {
-        ok: false,
-        error: "Apenas o Administrador pode ter empresa em branco.",
-        fieldErrors: { empresa_id: "Selecione uma empresa." },
-      }
+  // Empresas precisam de pelo menos 1
+  if (v.empresa_ids !== undefined && v.empresa_ids.length === 0) {
+    return {
+      ok: false,
+      error: "Selecione ao menos uma empresa.",
+      fieldErrors: { empresa_ids: "Selecione ao menos uma empresa." },
     }
   }
 
+  // Update dos campos da tabela usuarios (nome, perfil, iniciais)
   const updates: TablesUpdate<"usuarios"> = {}
   if (v.nome !== undefined) updates.nome = v.nome
   if (v.perfil_id !== undefined) updates.perfil_id = v.perfil_id
-  if (v.empresa_id !== undefined) updates.empresa_id = v.empresa_id
-  if (v.iniciais !== undefined) {
-    updates.iniciais = v.iniciais?.trim() || derivarIniciais(v.nome ?? antes.nome)
+  if (v.nome !== undefined) {
+    updates.iniciais = derivarIniciais(v.nome ?? antes.nome)
   }
 
-  if (Object.keys(updates).length === 0) {
-    return { ok: false, error: "Nada a atualizar." }
+  if (Object.keys(updates).length > 0) {
+    const { error } = await supabase
+      .from("usuarios")
+      .update(updates)
+      .eq("id", id)
+    if (error) return { ok: false, error: error.message }
   }
 
-  const { error } = await supabase.from("usuarios").update(updates).eq("id", id)
-  if (error) return { ok: false, error: error.message }
+  // Update das empresas via RPC (replace completo)
+  if (v.empresa_ids !== undefined) {
+    const { error: empErr } = await supabase.rpc("atualizar_empresas_usuario", {
+      p_user_id: id,
+      p_empresa_ids: v.empresa_ids,
+    })
+    if (empErr) return { ok: false, error: traduzirErroRpc(empErr.message) }
+  }
 
   await supabase.from("audit_logs").insert({
     usuario_id: user.id,
-    empresa_id: antes.empresa_id,
+    empresa_id: v.empresa_ids?.[0] ?? null,
     acao: "editar",
     entidade: "usuario",
     entidade_id: id,
     dados_antes: antes as never,
-    dados_depois: { ...antes, ...updates } as never,
+    dados_depois: {
+      ...antes,
+      ...updates,
+      empresa_ids: v.empresa_ids,
+    } as never,
   })
 
   revalidatePath("/usuarios")
@@ -168,7 +172,7 @@ export async function toggleUsuarioAtivo(
   const supabase = await createClient()
   const { data: antes } = await supabase
     .from("usuarios")
-    .select("ativo, empresa_id")
+    .select("ativo")
     .eq("id", id)
     .single()
 
@@ -183,7 +187,7 @@ export async function toggleUsuarioAtivo(
 
   await supabase.from("audit_logs").insert({
     usuario_id: user.id,
-    empresa_id: antes.empresa_id,
+    empresa_id: null,
     acao: "editar",
     entidade: "usuario",
     entidade_id: id,

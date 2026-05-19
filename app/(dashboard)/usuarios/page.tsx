@@ -56,34 +56,40 @@ export default async function UsuariosPage({
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
 
-  const isAdminMaster = user.empresa === null
+  const isAdminMaster = user.acessaTodasEmpresas
   const supabase = await createClient()
 
   const [{ data: perfis }, { data: empresasAtivas }] = await Promise.all([
     supabase.from("perfis_acesso").select("id, nome").eq("ativo", true).order("nome"),
-    supabase.from("empresas").select("id, nome").eq("ativo", true).order("nome"),
+    supabase.from("empresas").select("id, nome, slug").eq("ativo", true).order("nome"),
   ])
 
   // Filtro de empresa só pra Admin Master. NovoUsuarioButton recebe todas.
   const empresas = isAdminMaster ? (empresasAtivas ?? []) : []
 
+  // Se filtrando por empresa, primeiro acha os usuario_ids dessa empresa
+  let usuarioIdsFiltrados: string[] | null = null
+  if (empresaFiltro && isAdminMaster) {
+    const { data: rels } = await supabase
+      .from("usuarios_empresas")
+      .select("usuario_id")
+      .eq("empresa_id", empresaFiltro)
+    usuarioIdsFiltrados = (rels ?? []).map((r) => r.usuario_id)
+    if (usuarioIdsFiltrados.length === 0) usuarioIdsFiltrados = ["00000000-0000-0000-0000-000000000000"]
+  }
+
   // Query principal
   let query = supabase
     .from("usuarios")
-    .select(
-      "id, nome, email, iniciais, ativo, perfil_id, empresa_id",
-      { count: "exact" },
-    )
+    .select("id, nome, email, iniciais, ativo, perfil_id", { count: "exact" })
     .order("nome")
     .range(from, to)
 
-  if (q) {
-    query = query.or(`nome.ilike.%${q}%,email.ilike.%${q}%`)
-  }
+  if (q) query = query.or(`nome.ilike.%${q}%,email.ilike.%${q}%`)
   if (perfilId) query = query.eq("perfil_id", perfilId)
   if (status === "ativo") query = query.eq("ativo", true)
   if (status === "inativo") query = query.eq("ativo", false)
-  if (empresaFiltro && isAdminMaster) query = query.eq("empresa_id", empresaFiltro)
+  if (usuarioIdsFiltrados) query = query.in("id", usuarioIdsFiltrados)
 
   const { data: usuarios, count, error } = await query
 
@@ -96,7 +102,24 @@ export default async function UsuariosPage({
   }
 
   const perfisMap = new Map((perfis ?? []).map((p) => [p.id, p.nome]))
-  const empresasMap = new Map(empresas.map((e) => [e.id, e.nome]))
+  const empresasMap = new Map((empresasAtivas ?? []).map((e) => [e.id, e.nome]))
+
+  // Busca as empresas de cada usuário em batch
+  const userIds = (usuarios ?? []).map((u) => u.id)
+  const { data: empresasUsuarios } = userIds.length
+    ? await supabase
+        .from("usuarios_empresas")
+        .select("usuario_id, empresa_id")
+        .in("usuario_id", userIds)
+    : { data: [] as { usuario_id: string; empresa_id: string }[] }
+
+  const empresasPorUsuario = new Map<string, string[]>()
+  for (const r of empresasUsuarios ?? []) {
+    const arr = empresasPorUsuario.get(r.usuario_id) ?? []
+    arr.push(r.empresa_id)
+    empresasPorUsuario.set(r.usuario_id, arr)
+  }
+  const totalEmpresasAtivas = (empresasAtivas ?? []).length
 
   const total = count ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -154,9 +177,15 @@ export default async function UsuariosPage({
             ) : (
               usuarios.map((u) => {
                 const perfilNome = perfisMap.get(u.perfil_id) ?? "—"
-                const empresaNome = u.empresa_id
-                  ? empresasMap.get(u.empresa_id) ?? "—"
-                  : "Todas"
+                const userEmpresaIds = empresasPorUsuario.get(u.id) ?? []
+                const empresaNome =
+                  userEmpresaIds.length === 0
+                    ? "—"
+                    : userEmpresaIds.length >= totalEmpresasAtivas
+                      ? "Todas"
+                      : userEmpresaIds
+                          .map((id) => empresasMap.get(id) ?? "?")
+                          .join(" · ")
                 return (
                   <TableRow
                     key={u.id}

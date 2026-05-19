@@ -63,7 +63,7 @@ export async function createFornecedor(
     return { ok: false, error: error?.message ?? "Falha ao salvar fornecedor." }
   }
 
-  await logAudit(user.id, user.empresa?.id ?? null, "criar", novo.id, null, values)
+  await logAudit(user.id, user.empresas[0]?.id ?? null, "criar", novo.id, null, values)
 
   revalidatePath("/fornecedores")
   return { ok: true, data: { id: novo.id } }
@@ -126,7 +126,7 @@ export async function updateFornecedor(
 
   if (error) return { ok: false, error: error.message }
 
-  await logAudit(user.id, user.empresa?.id ?? null, "editar", id, antes, values)
+  await logAudit(user.id, user.empresas[0]?.id ?? null, "editar", id, antes, values)
 
   revalidatePath("/fornecedores")
   revalidatePath(`/fornecedores/${id}`)
@@ -160,7 +160,7 @@ export async function toggleFornecedorAtivo(
 
   await logAudit(
     user.id,
-    user.empresa?.id ?? null,
+    user.empresas[0]?.id ?? null,
     "editar",
     id,
     { ativo: antes.ativo },
@@ -205,7 +205,7 @@ export async function deleteFornecedor(id: string): Promise<ActionResult> {
   const { error } = await supabase.from("fornecedores").delete().eq("id", id)
   if (error) return { ok: false, error: error.message }
 
-  await logAudit(user.id, user.empresa?.id ?? null, "excluir", id, antes, null)
+  await logAudit(user.id, user.empresas[0]?.id ?? null, "excluir", id, antes, null)
 
   revalidatePath("/fornecedores")
   redirect("/fornecedores")

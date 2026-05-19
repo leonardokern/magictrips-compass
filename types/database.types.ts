@@ -870,7 +870,6 @@ export type Database = {
           ativo: boolean
           created_at: string
           email: string
-          empresa_id: string | null
           force_password_change: boolean
           id: string
           iniciais: string | null
@@ -882,7 +881,6 @@ export type Database = {
           ativo?: boolean
           created_at?: string
           email: string
-          empresa_id?: string | null
           force_password_change?: boolean
           id: string
           iniciais?: string | null
@@ -894,7 +892,6 @@ export type Database = {
           ativo?: boolean
           created_at?: string
           email?: string
-          empresa_id?: string | null
           force_password_change?: boolean
           id?: string
           iniciais?: string | null
@@ -904,17 +901,43 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "usuarios_empresa_id_fkey"
+            foreignKeyName: "usuarios_perfil_id_fkey"
+            columns: ["perfil_id"]
+            isOneToOne: false
+            referencedRelation: "perfis_acesso"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usuarios_empresas: {
+        Row: {
+          created_at: string
+          empresa_id: string
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string
+          empresa_id: string
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usuarios_empresas_empresa_id_fkey"
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "usuarios_perfil_id_fkey"
-            columns: ["perfil_id"]
+            foreignKeyName: "usuarios_empresas_usuario_id_fkey"
+            columns: ["usuario_id"]
             isOneToOne: false
-            referencedRelation: "perfis_acesso"
+            referencedRelation: "usuarios"
             referencedColumns: ["id"]
           },
         ]
@@ -1233,12 +1256,16 @@ export type Database = {
         Args: { p_nova_senha: string; p_senha_atual: string }
         Returns: undefined
       }
-      app_user_empresa_id: { Args: never; Returns: string }
+      app_user_empresas: { Args: never; Returns: string[] }
       app_user_perfil_nome: { Args: never; Returns: string }
+      atualizar_empresas_usuario: {
+        Args: { p_empresa_ids: string[]; p_user_id: string }
+        Returns: undefined
+      }
       criar_usuario_admin: {
         Args: {
           p_email: string
-          p_empresa_id: string
+          p_empresa_ids: string[]
           p_iniciais?: string
           p_nome: string
           p_perfil_id: string

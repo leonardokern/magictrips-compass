@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { UsuarioFormModal } from "./usuario-form-modal"
 
 type Perfil = { id: string; nome: string }
-type Empresa = { id: string; nome: string }
+type Empresa = { id: string; nome: string; slug: string }
 
 type Props = {
   perfis: Perfil[]
