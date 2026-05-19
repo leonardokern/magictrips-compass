@@ -21,6 +21,15 @@ export function formatCpf(cpf: string | null | undefined): string {
 }
 
 /**
+ * Formata CNPJ: "12345678000199" → "12.345.678/0001-99"
+ */
+export function formatCnpj(cnpj: string | null | undefined): string {
+  const d = onlyDigits(cnpj)
+  if (d.length !== 14) return cnpj ?? ""
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`
+}
+
+/**
  * Formata telefone brasileiro:
  *  - 11 dígitos (celular): "(11) 91234-5678"
  *  - 10 dígitos (fixo):    "(11) 1234-5678"

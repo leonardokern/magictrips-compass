@@ -42,3 +42,30 @@ export function telefoneValido(tel: string | null | undefined): boolean {
   const d = onlyDigits(tel)
   return d.length === 10 || d.length === 11
 }
+
+/**
+ * Valida CNPJ brasileiro pelos dígitos verificadores.
+ * Aceita com ou sem máscara.
+ */
+export function cnpjValido(cnpj: string | null | undefined): boolean {
+  const d = onlyDigits(cnpj)
+  if (d.length !== 14) return false
+  if (/^(\d)\1{13}$/.test(d)) return false
+
+  const calcular = (size: number): number => {
+    const numbers = d.slice(0, size)
+    const weights = size === 12
+      ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+      : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    let soma = 0
+    for (let i = 0; i < size; i++) {
+      soma += Number(numbers[i]) * weights[i]!
+    }
+    const resto = soma % 11
+    return resto < 2 ? 0 : 11 - resto
+  }
+
+  if (calcular(12) !== Number(d[12])) return false
+  if (calcular(13) !== Number(d[13])) return false
+  return true
+}
