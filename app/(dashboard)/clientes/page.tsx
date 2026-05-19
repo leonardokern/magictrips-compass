@@ -111,16 +111,16 @@ export default async function ClientesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Clientes</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-2xl font-semibold tracking-tight text-white">Clientes</h2>
+          <p className="mt-1 text-sm text-white/55">
             {total} {total === 1 ? "cliente cadastrado" : "clientes cadastrados"}
           </p>
         </div>
 
         {can(user, "clientes", "criar") && (
-          <Button asChild>
+          <Button asChild className="bg-indigo-500 text-white hover:bg-indigo-400">
             <Link href="/clientes/novo">
               <Plus className="mr-2 h-4 w-4" />
               Novo cliente
@@ -138,22 +138,22 @@ export default async function ClientesPage({
         showEmpresaFilter={isAdminMaster}
       />
 
-      <div className="rounded-md border bg-background">
+      <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>CPF</TableHead>
-              <TableHead>E-mail</TableHead>
-              <TableHead>Telefone</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Status</TableHead>
+            <TableRow className="border-white/[0.06] hover:bg-transparent">
+              <TableHead className="text-white/55">Nome</TableHead>
+              <TableHead className="text-white/55">CPF</TableHead>
+              <TableHead className="text-white/55">E-mail</TableHead>
+              <TableHead className="text-white/55">Telefone</TableHead>
+              <TableHead className="text-white/55">Tipo</TableHead>
+              <TableHead className="text-white/55">Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {!clientes || clientes.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-32 text-center text-sm text-muted-foreground">
+              <TableRow className="border-white/[0.06] hover:bg-transparent">
+                <TableCell colSpan={6} className="h-32 text-center text-sm text-white/45">
                   {q || tipo || status
                     ? "Nenhum cliente encontrado com esses filtros."
                     : "Nenhum cliente cadastrado ainda."}
@@ -161,8 +161,11 @@ export default async function ClientesPage({
               </TableRow>
             ) : (
               clientes.map((c) => (
-                <TableRow key={c.id} className="cursor-pointer">
-                  <TableCell className="font-medium">
+                <TableRow
+                  key={c.id}
+                  className="cursor-pointer border-white/[0.06] hover:bg-white/[0.025]"
+                >
+                  <TableCell className="font-medium text-white">
                     <Link
                       href={`/clientes/${c.id}`}
                       className="hover:underline"
@@ -170,9 +173,9 @@ export default async function ClientesPage({
                       {c.nome}
                     </Link>
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{formatCpf(c.cpf)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{c.email}</TableCell>
-                  <TableCell className="text-sm">{formatTelefone(c.telefone)}</TableCell>
+                  <TableCell className="font-mono text-xs text-white/75">{formatCpf(c.cpf)}</TableCell>
+                  <TableCell className="text-sm text-white/55">{c.email}</TableCell>
+                  <TableCell className="text-sm text-white/75">{formatTelefone(c.telefone)}</TableCell>
                   <TableCell>
                     <TipoClienteBadge tipo={c.tipo as TipoCliente} />
                   </TableCell>
@@ -187,13 +190,18 @@ export default async function ClientesPage({
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div className="flex items-center justify-between text-sm text-white/55">
           <span>
             Página {page} de {totalPages}
           </span>
           <div className="flex gap-2">
             {page > 1 && (
-              <Button variant="outline" size="sm" asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="border-white/10 bg-transparent text-white/70 hover:bg-white/[0.04] hover:text-white"
+              >
                 <Link
                   href={`/clientes?${new URLSearchParams({
                     ...Object.fromEntries(
@@ -207,7 +215,12 @@ export default async function ClientesPage({
               </Button>
             )}
             {page < totalPages && (
-              <Button variant="outline" size="sm" asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="border-white/10 bg-transparent text-white/70 hover:bg-white/[0.04] hover:text-white"
+              >
                 <Link
                   href={`/clientes?${new URLSearchParams({
                     ...Object.fromEntries(

@@ -54,12 +54,12 @@ export default async function PerfisPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">
+          <h2 className="text-2xl font-semibold tracking-tight text-white">
             Perfis de acesso
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="mt-1 max-w-2xl text-sm text-white/55">
             Defina o que cada perfil pode fazer em cada módulo do sistema.
             Os 3 perfis do sistema (Administrador, Gerente, Agente) não podem
             ser excluídos.
@@ -67,7 +67,7 @@ export default async function PerfisPage() {
         </div>
 
         {can(user, "perfis", "criar") && (
-          <Button asChild>
+          <Button asChild className="bg-indigo-500 text-white hover:bg-indigo-400">
             <Link href="/perfis/novo">
               <Plus className="mr-2 h-4 w-4" />
               Novo perfil
@@ -76,27 +76,30 @@ export default async function PerfisPage() {
         )}
       </div>
 
-      <div className="rounded-md border bg-background">
+      <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Usuários</TableHead>
+            <TableRow className="border-white/[0.06] hover:bg-transparent">
+              <TableHead className="text-white/55">Nome</TableHead>
+              <TableHead className="text-white/55">Tipo</TableHead>
+              <TableHead className="text-white/55">Status</TableHead>
+              <TableHead className="text-white/55">Usuários</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {!perfis || perfis.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-sm text-muted-foreground">
+              <TableRow className="border-white/[0.06] hover:bg-transparent">
+                <TableCell colSpan={4} className="h-24 text-center text-sm text-white/45">
                   Nenhum perfil cadastrado.
                 </TableCell>
               </TableRow>
             ) : (
               perfis.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">
+                <TableRow
+                  key={p.id}
+                  className="border-white/[0.06] hover:bg-white/[0.025]"
+                >
+                  <TableCell className="font-medium text-white">
                     <Link
                       href={`/perfis/${p.id}`}
                       className="hover:underline"
@@ -108,15 +111,13 @@ export default async function PerfisPage() {
                     {p.sistema ? (
                       <PerfilSistemaBadge sistema />
                     ) : (
-                      <span className="text-xs text-muted-foreground">
-                        Customizado
-                      </span>
+                      <span className="text-xs text-white/55">Customizado</span>
                     )}
                   </TableCell>
                   <TableCell>
                     <PerfilAtivoBadge ativo={p.ativo} />
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="text-sm text-white/75">
                     {usuariosPorPerfil[p.id] ?? 0}
                   </TableCell>
                 </TableRow>

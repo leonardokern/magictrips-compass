@@ -25,6 +25,11 @@ export type NavItem = {
   icon: string
 }
 
+export type NavSection = {
+  label: string
+  items: NavItem[]
+}
+
 const ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
   vendas: ShoppingCart,
@@ -41,49 +46,51 @@ const ICONS: Record<string, LucideIcon> = {
 }
 
 type Props = {
-  items: NavItem[]
+  sections: NavSection[]
 }
 
-export function SidebarNav({ items }: Props) {
+export function SidebarNav({ sections }: Props) {
   const pathname = usePathname()
 
   return (
-    <nav className="flex flex-col gap-0.5 px-3">
-      {items.map((item) => {
-        const Icon = ICONS[item.icon] ?? LayoutDashboard
-        const ativo =
-          item.href === "/dashboard"
-            ? pathname === item.href
-            : pathname.startsWith(item.href)
+    <nav className="flex flex-col gap-5 px-3">
+      {sections.map((section) => (
+        <div key={section.label} className="flex flex-col gap-1">
+          <p className="px-3 pb-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white/35">
+            {section.label}
+          </p>
+          {section.items.map((item) => {
+            const Icon = ICONS[item.icon] ?? LayoutDashboard
+            const ativo =
+              item.href === "/dashboard"
+                ? pathname === item.href
+                : pathname.startsWith(item.href)
 
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              "group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-              ativo
-                ? "bg-white/[0.08] text-white"
-                : "text-white/55 hover:bg-white/[0.04] hover:text-white",
-            )}
-          >
-            {/* Indicador lateral discreto quando ativo */}
-            {ativo && (
-              <span
-                aria-hidden
-                className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-white"
-              />
-            )}
-            <Icon
-              className={cn(
-                "h-4 w-4 shrink-0 transition-colors",
-                ativo ? "text-white" : "text-white/50 group-hover:text-white/80",
-              )}
-            />
-            <span className="truncate">{item.label}</span>
-          </Link>
-        )
-      })}
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+                  ativo
+                    ? "bg-indigo-500/15 text-white shadow-[inset_0_0_0_1px_rgba(99,102,241,0.18)]"
+                    : "text-white/55 hover:bg-white/[0.04] hover:text-white",
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "h-4 w-4 shrink-0 transition-colors",
+                    ativo
+                      ? "text-indigo-400"
+                      : "text-white/50 group-hover:text-white/80",
+                  )}
+                />
+                <span className="truncate">{item.label}</span>
+              </Link>
+            )
+          })}
+        </div>
+      ))}
     </nav>
   )
 }
