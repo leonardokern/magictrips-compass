@@ -17,7 +17,7 @@ export default function AlterarSenhaPage() {
             width={384}
             height={384}
             priority
-            className="h-64 w-64 select-none object-contain"
+            className="h-52 w-52 select-none object-contain"
             style={{ filter: "invert(1) brightness(1.4)" }}
           />
 

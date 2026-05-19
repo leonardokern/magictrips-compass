@@ -29,7 +29,7 @@ export default async function LoginPage({ searchParams }: Props) {
               width={384}
               height={384}
               priority
-              className="h-64 w-64 select-none object-contain"
+              className="h-52 w-52 select-none object-contain"
               style={{ filter: "invert(1) brightness(1.4)" }}
             />
           </div>
@@ -54,21 +54,21 @@ export default async function LoginPage({ searchParams }: Props) {
           <p className="text-[10px] uppercase tracking-[0.2em] text-white/40">
             Plataforma interna de
           </p>
-          <div className="flex items-center justify-center gap-12 md:gap-16">
+          <div className="flex items-center justify-center gap-4 md:gap-6">
             <Image
               src="/brand/magic-trips-white.png"
               alt="Magic Trips"
-              width={320}
-              height={120}
-              className="h-24 w-auto select-none object-contain opacity-80 transition-opacity hover:opacity-100"
+              width={448}
+              height={168}
+              className="h-32 w-auto select-none object-contain opacity-80 transition-opacity hover:opacity-100"
             />
-            <div className="h-16 w-px bg-white/15" aria-hidden />
+            <div className="h-20 w-px bg-white/15" aria-hidden />
             <Image
               src="/brand/del-mondo-white.png"
               alt="Del Mondo"
-              width={320}
-              height={120}
-              className="h-24 w-auto select-none object-contain opacity-80 transition-opacity hover:opacity-100"
+              width={448}
+              height={168}
+              className="h-32 w-auto select-none object-contain opacity-80 transition-opacity hover:opacity-100"
             />
           </div>
         </footer>
