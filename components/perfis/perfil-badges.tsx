@@ -5,8 +5,8 @@ export function PerfilSistemaBadge({ sistema }: { sistema: boolean }) {
   if (!sistema) return null
   return (
     <Badge
-      variant="secondary"
-      className="border-0 bg-indigo-100 text-indigo-800 hover:bg-indigo-100"
+      variant="outline"
+      className="border-indigo-500/30 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/15"
     >
       Sistema
     </Badge>
@@ -16,12 +16,11 @@ export function PerfilSistemaBadge({ sistema }: { sistema: boolean }) {
 export function PerfilAtivoBadge({ ativo }: { ativo: boolean }) {
   return (
     <Badge
-      variant="secondary"
+      variant="outline"
       className={cn(
-        "border-0",
         ativo
-          ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
-          : "bg-muted text-muted-foreground hover:bg-muted",
+          ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/15"
+          : "border-white/10 bg-white/[0.06] text-white/45 hover:bg-white/[0.06]",
       )}
     >
       {ativo ? "Ativo" : "Inativo"}
