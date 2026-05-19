@@ -9,6 +9,7 @@ export type Modulo =
   | "tipos_produto"
   | "usuarios"
   | "perfis"
+  | "comissoes"
   | "auditoria"
   | "exportar"
 

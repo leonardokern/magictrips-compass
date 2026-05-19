@@ -94,6 +94,15 @@ export const MODULOS_PERMISSAO: ModuloDef[] = [
     acoes: CRUD_BASE,
   },
   {
+    key: "comissoes",
+    label: "Comissões",
+    description: "Matriz de % de comissão por empresa × origem do lead.",
+    acoes: [
+      { key: "ler", label: "Ler" },
+      { key: "editar", label: "Editar" },
+    ],
+  },
+  {
     key: "auditoria",
     label: "Auditoria",
     description: "Log imutável de ações críticas (somente leitura).",

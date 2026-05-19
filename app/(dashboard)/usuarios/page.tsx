@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -18,6 +17,7 @@ import {
   PerfilUsuarioBadge,
   UsuarioAtivoBadge,
 } from "@/components/usuarios/usuario-badges"
+import { NovoUsuarioButton } from "@/components/usuarios/novo-usuario-button"
 
 export const metadata: Metadata = {
   title: "Usuários",
@@ -59,20 +59,13 @@ export default async function UsuariosPage({
   const isAdminMaster = user.empresa === null
   const supabase = await createClient()
 
-  const { data: perfis = [] } = await supabase
-    .from("perfis_acesso")
-    .select("id, nome")
-    .order("nome")
+  const [{ data: perfis }, { data: empresasAtivas }] = await Promise.all([
+    supabase.from("perfis_acesso").select("id, nome").eq("ativo", true).order("nome"),
+    supabase.from("empresas").select("id, nome").eq("ativo", true).order("nome"),
+  ])
 
-  let empresas: { id: string; nome: string }[] = []
-  if (isAdminMaster) {
-    const { data } = await supabase
-      .from("empresas")
-      .select("id, nome")
-      .eq("ativo", true)
-      .order("nome")
-    empresas = data ?? []
-  }
+  // Filtro de empresa só pra Admin Master. NovoUsuarioButton recebe todas.
+  const empresas = isAdminMaster ? (empresasAtivas ?? []) : []
 
   // Query principal
   let query = supabase
@@ -121,12 +114,10 @@ export default async function UsuariosPage({
         </div>
 
         {can(user, "usuarios", "criar") && (
-          <Button asChild className="bg-indigo-500 text-white hover:bg-indigo-400">
-            <Link href="/usuarios/novo">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo usuário
-            </Link>
-          </Button>
+          <NovoUsuarioButton
+            perfis={perfis ?? []}
+            empresas={empresasAtivas ?? []}
+          />
         )}
       </div>
 

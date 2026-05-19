@@ -8,6 +8,7 @@ import {
   History,
   LayoutDashboard,
   Package,
+  Percent,
   Receipt,
   Shield,
   ShoppingCart,
@@ -42,6 +43,7 @@ const ICONS: Record<string, LucideIcon> = {
   fornecedores: Package,
   usuarios: UserCog,
   perfis: Shield,
+  comissoes: Percent,
   auditoria: History,
 }
 

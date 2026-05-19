@@ -5,11 +5,8 @@ import {
   Building2,
   ChevronLeft,
   Mail,
-  Pencil,
-  Percent,
   ShieldCheck,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/server"
 import { requireCurrentUser } from "@/lib/hooks/use-current-user"
@@ -19,6 +16,7 @@ import {
   UsuarioAtivoBadge,
 } from "@/components/usuarios/usuario-badges"
 import { UsuarioAcoes } from "@/components/usuarios/usuario-acoes"
+import { EditarUsuarioButton } from "@/components/usuarios/editar-usuario-button"
 
 export const metadata: Metadata = {
   title: "Usuário",
@@ -44,19 +42,22 @@ export default async function UsuarioDetailPage({
   const { data: u } = await supabase
     .from("usuarios")
     .select(
-      "id, nome, email, iniciais, ativo, force_password_change, perfil_id, empresa_id, comissao_percentual, created_at",
+      "id, nome, email, iniciais, ativo, force_password_change, perfil_id, empresa_id, created_at",
     )
     .eq("id", id)
     .maybeSingle()
 
   if (!u) notFound()
 
-  const [{ data: perfil }, { data: empresa }] = await Promise.all([
-    supabase.from("perfis_acesso").select("nome").eq("id", u.perfil_id).single(),
-    u.empresa_id
-      ? supabase.from("empresas").select("nome").eq("id", u.empresa_id).single()
-      : Promise.resolve({ data: null }),
-  ])
+  const [{ data: perfil }, { data: empresa }, perfisRes, empresasRes] =
+    await Promise.all([
+      supabase.from("perfis_acesso").select("nome").eq("id", u.perfil_id).single(),
+      u.empresa_id
+        ? supabase.from("empresas").select("nome").eq("id", u.empresa_id).single()
+        : Promise.resolve({ data: null }),
+      supabase.from("perfis_acesso").select("id, nome").eq("ativo", true).order("nome"),
+      supabase.from("empresas").select("id, nome").eq("ativo", true).order("nome"),
+    ])
 
   const isSelf = u.id === user.id
   const permEditar = can(user, "usuarios", "editar")
@@ -74,17 +75,18 @@ export default async function UsuarioDetailPage({
         </Link>
 
         {permEditar && (
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="border-white/10 bg-transparent text-white/70 hover:bg-white/[0.04] hover:text-white"
-          >
-            <Link href={`/usuarios/${u.id}/editar`}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar
-            </Link>
-          </Button>
+          <EditarUsuarioButton
+            id={u.id}
+            initial={{
+              nome: u.nome,
+              email: u.email,
+              iniciais: u.iniciais,
+              perfil_id: u.perfil_id,
+              empresa_id: u.empresa_id,
+            }}
+            perfis={perfisRes.data ?? []}
+            empresas={empresasRes.data ?? []}
+          />
         )}
       </div>
 
@@ -156,13 +158,6 @@ export default async function UsuarioDetailPage({
             <Row icon={<Building2 className="h-4 w-4" />} label="Empresa">
               {empresa?.nome ?? (
                 <span className="text-white/60">Todas (Administrador)</span>
-              )}
-            </Row>
-            <Row icon={<Percent className="h-4 w-4" />} label="Comissão">
-              {u.comissao_percentual != null ? (
-                <span>{u.comissao_percentual}% fixo</span>
-              ) : (
-                <span className="text-white/55">Régua padrão 30/40/50%</span>
               )}
             </Row>
           </CardContent>

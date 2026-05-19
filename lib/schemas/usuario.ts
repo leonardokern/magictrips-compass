@@ -21,12 +21,6 @@ export const usuarioCreateSchema = z.object({
     .max(4, "Máximo 4 caracteres")
     .optional()
     .or(z.literal("")),
-  comissao_percentual: z
-    .number({ invalid_type_error: "Use apenas números" })
-    .min(0, "Mínimo 0")
-    .max(100, "Máximo 100")
-    .nullable()
-    .optional(),
 })
 
 export const usuarioUpdateSchema = usuarioCreateSchema.partial({

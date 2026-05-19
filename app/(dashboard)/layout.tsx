@@ -83,6 +83,9 @@ export default async function DashboardLayout({
         ...(perms.can("perfis", "ler")
           ? [{ href: "/perfis", label: "Perfis de Acesso", icon: "perfis" } as NavItem]
           : []),
+        ...(perms.can("comissoes", "ler")
+          ? [{ href: "/comissoes", label: "Comissões", icon: "comissoes" } as NavItem]
+          : []),
         ...(perms.can("auditoria", "ler")
           ? [{ href: "/auditoria", label: "Auditoria", icon: "auditoria" } as NavItem]
           : []),

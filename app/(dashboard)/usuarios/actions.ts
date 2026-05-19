@@ -50,7 +50,6 @@ export async function createUsuario(
     p_perfil_id: values.perfil_id,
     p_empresa_id: values.empresa_id as string,
     p_iniciais: iniciais,
-    p_comissao_percentual: values.comissao_percentual ?? undefined,
   })
 
   if (error) {
@@ -121,9 +120,6 @@ export async function updateUsuario(
   if (v.empresa_id !== undefined) updates.empresa_id = v.empresa_id
   if (v.iniciais !== undefined) {
     updates.iniciais = v.iniciais?.trim() || derivarIniciais(v.nome ?? antes.nome)
-  }
-  if (v.comissao_percentual !== undefined) {
-    updates.comissao_percentual = v.comissao_percentual
   }
 
   if (Object.keys(updates).length === 0) {

@@ -401,6 +401,44 @@ export type Database = {
           },
         ]
       }
+      comissoes_regras: {
+        Row: {
+          created_at: string
+          empresa_id: string
+          id: string
+          observacao: string | null
+          origem: string
+          percentual: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          empresa_id: string
+          id?: string
+          observacao?: string | null
+          origem: string
+          percentual: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          observacao?: string | null
+          origem?: string
+          percentual?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comissoes_regras_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       empresas: {
         Row: {
           ativo: boolean
@@ -830,7 +868,6 @@ export type Database = {
       usuarios: {
         Row: {
           ativo: boolean
-          comissao_percentual: number | null
           created_at: string
           email: string
           empresa_id: string | null
@@ -843,7 +880,6 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
-          comissao_percentual?: number | null
           created_at?: string
           email: string
           empresa_id?: string | null
@@ -856,7 +892,6 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
-          comissao_percentual?: number | null
           created_at?: string
           email?: string
           empresa_id?: string | null
@@ -1202,7 +1237,6 @@ export type Database = {
       app_user_perfil_nome: { Args: never; Returns: string }
       criar_usuario_admin: {
         Args: {
-          p_comissao_percentual?: number
           p_email: string
           p_empresa_id: string
           p_iniciais?: string
