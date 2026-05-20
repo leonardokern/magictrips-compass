@@ -17,6 +17,19 @@ export const usuarioCreateSchema = z.object({
   empresa_ids: z
     .array(z.string().uuid())
     .min(1, "Selecione ao menos uma empresa"),
+  /**
+   * Senha definida pelo admin. Mínimo 8 caracteres.
+   * Pode ser gerada via botão "Gerar senha" na UI.
+   */
+  senha: z
+    .string()
+    .min(8, "A senha precisa ter no mínimo 8 caracteres")
+    .max(72, "Máximo 72 caracteres (limite bcrypt)"),
+  /**
+   * Quando true, o usuário precisa trocar a senha no primeiro login.
+   * Quando false, a senha definida pelo admin já é a senha final.
+   */
+  forcar_troca_senha: z.boolean().default(true),
 })
 
 export const usuarioUpdateSchema = usuarioCreateSchema.partial({

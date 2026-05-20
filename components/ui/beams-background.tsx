@@ -23,6 +23,10 @@ interface Beam {
   pulseSpeed: number
 }
 
+// Paleta Nexus: nexus-deep #004E5A (HSL 188° 100% 18%) → nexus-bright #1498D5 (HSL 201° 79% 46%)
+const NEXUS_HUE_MIN = 188
+const NEXUS_HUE_RANGE = 13
+
 function createBeam(width: number, height: number): Beam {
   const angle = -35 + Math.random() * 10
   return {
@@ -33,7 +37,7 @@ function createBeam(width: number, height: number): Beam {
     angle,
     speed: 0.6 + Math.random() * 1.2,
     opacity: 0.12 + Math.random() * 0.16,
-    hue: 190 + Math.random() * 70,
+    hue: NEXUS_HUE_MIN + Math.random() * NEXUS_HUE_RANGE,
     pulse: Math.random() * Math.PI * 2,
     pulseSpeed: 0.02 + Math.random() * 0.03,
   }
@@ -94,7 +98,7 @@ export function BeamsBackground({
         (Math.random() - 0.5) * spacing * 0.5
       beam.width = 100 + Math.random() * 100
       beam.speed = 0.5 + Math.random() * 0.4
-      beam.hue = 190 + (index * 70) / totalBeams
+      beam.hue = NEXUS_HUE_MIN + (index * NEXUS_HUE_RANGE) / totalBeams
       beam.opacity = 0.2 + Math.random() * 0.1
       return beam
     }

@@ -407,7 +407,7 @@ export type Database = {
           empresa_id: string
           id: string
           observacao: string | null
-          origem: string
+          origem_id: string
           percentual: number
           updated_at: string
         }
@@ -416,7 +416,7 @@ export type Database = {
           empresa_id: string
           id?: string
           observacao?: string | null
-          origem: string
+          origem_id: string
           percentual: number
           updated_at?: string
         }
@@ -425,7 +425,7 @@ export type Database = {
           empresa_id?: string
           id?: string
           observacao?: string | null
-          origem?: string
+          origem_id?: string
           percentual?: number
           updated_at?: string
         }
@@ -437,7 +437,41 @@ export type Database = {
             referencedRelation: "empresas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "comissoes_regras_origem_id_fkey"
+            columns: ["origem_id"]
+            isOneToOne: false
+            referencedRelation: "origens_venda"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      origens_venda: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          nome: string
+          ordem: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          ordem?: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          ordem?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       empresas: {
         Row: {
@@ -782,28 +816,87 @@ export type Database = {
         Row: {
           ativo: boolean
           created_at: string
+          empresa_id: string | null
           id: string
           nome: string
           permissoes: Json
           sistema: boolean
+          tipo: string
         }
         Insert: {
           ativo?: boolean
           created_at?: string
+          empresa_id?: string | null
           id?: string
           nome: string
           permissoes?: Json
           sistema?: boolean
+          tipo: string
         }
         Update: {
           ativo?: boolean
           created_at?: string
+          empresa_id?: string | null
           id?: string
           nome?: string
           permissoes?: Json
           sistema?: boolean
+          tipo?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "perfis_acesso_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      perfis_comissoes: {
+        Row: {
+          created_at: string
+          id: string
+          observacao: string | null
+          origem_id: string
+          percentual: number
+          perfil_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          origem_id: string
+          percentual: number
+          perfil_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          origem_id?: string
+          percentual?: number
+          perfil_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "perfis_comissoes_origem_id_fkey"
+            columns: ["origem_id"]
+            isOneToOne: false
+            referencedRelation: "origens_venda"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "perfis_comissoes_perfil_id_fkey"
+            columns: ["perfil_id"]
+            isOneToOne: false
+            referencedRelation: "perfis_acesso"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tipos_produto: {
         Row: {
@@ -1266,6 +1359,7 @@ export type Database = {
         Args: {
           p_email: string
           p_empresa_ids: string[]
+          p_forcar_troca?: boolean
           p_iniciais?: string
           p_nome: string
           p_perfil_id: string
@@ -1273,6 +1367,7 @@ export type Database = {
         }
         Returns: string
       }
+      criar_venda_completa: { Args: { p_payload: Json }; Returns: string }
       excluir_usuario_admin: { Args: { p_user_id: string }; Returns: undefined }
       is_administrador: { Args: never; Returns: boolean }
       is_agente: { Args: never; Returns: boolean }

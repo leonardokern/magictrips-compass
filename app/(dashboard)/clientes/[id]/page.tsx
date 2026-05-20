@@ -1,8 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ChevronLeft, Mail, MapPin, Pencil, Phone, User2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { ChevronLeft, Mail, MapPin, Phone, User2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { createClient } from "@/lib/supabase/server"
@@ -13,8 +12,13 @@ import {
   StatusClienteBadge,
   TipoClienteBadge,
 } from "@/components/clientes/status-badge"
-import type { StatusCliente, TipoCliente } from "@/lib/schemas/cliente"
+import type {
+  ClienteFormValues,
+  StatusCliente,
+  TipoCliente,
+} from "@/lib/schemas/cliente"
 import { DeleteClienteButton } from "@/components/clientes/delete-cliente-button"
+import { EditarClienteButton } from "@/components/clientes/editar-cliente-button"
 
 export const metadata: Metadata = {
   title: "Cliente",
@@ -64,6 +68,19 @@ export default async function ClienteDetailPage({
     .eq("id", cliente.empresa_id)
     .single()
 
+  // Empresas disponíveis pro modal de edição (Admin Master vê todas; outros, suas)
+  const empresasParaModal = user.acessaTodasEmpresas
+    ? (
+        await supabase
+          .from("empresas")
+          .select("id, nome")
+          .eq("ativo", true)
+          .order("nome")
+      ).data ?? []
+    : user.empresas.map((e) => ({ id: e.id, nome: e.nome }))
+  const lockEmpresaModal =
+    !user.acessaTodasEmpresas && user.empresas.length === 1
+
   const endereco = (cliente.endereco as Endereco | null) ?? {}
   const hasEndereco = Object.values(endereco).some((v) => v)
 
@@ -86,12 +103,26 @@ export default async function ClienteDetailPage({
 
         <div className="flex items-center gap-2">
           {can(user, "clientes", "editar") && (
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/clientes/${cliente.id}/editar`}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Editar
-              </Link>
-            </Button>
+            <EditarClienteButton
+              id={cliente.id}
+              initial={{
+                empresa_id: cliente.empresa_id,
+                nome: cliente.nome,
+                email: cliente.email,
+                telefone: cliente.telefone,
+                cpf: cliente.cpf,
+                data_nascimento: cliente.data_nascimento ?? "",
+                endereco: (cliente.endereco as ClienteFormValues["endereco"]) ?? {},
+                origem: cliente.origem ?? "",
+                tipo: cliente.tipo as TipoCliente,
+                dia_faturamento: cliente.dia_faturamento ?? undefined,
+                status: cliente.status as StatusCliente,
+                observacoes: cliente.observacoes ?? "",
+              }}
+              empresas={empresasParaModal}
+              defaultEmpresaId={cliente.empresa_id}
+              lockEmpresa={lockEmpresaModal}
+            />
           )}
           {can(user, "clientes", "excluir") && (
             <DeleteClienteButton clienteId={cliente.id} clienteNome={cliente.nome} />

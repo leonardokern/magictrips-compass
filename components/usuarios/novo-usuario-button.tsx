@@ -5,7 +5,7 @@ import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { UsuarioFormModal } from "./usuario-form-modal"
 
-type Perfil = { id: string; nome: string }
+type Perfil = { id: string; nome: string; empresa_id: string | null }
 type Empresa = { id: string; nome: string; slug: string }
 
 type Props = {

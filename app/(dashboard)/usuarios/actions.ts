@@ -16,12 +16,13 @@ import type { TablesUpdate } from "@/types/database.types"
 
 /**
  * Cria um novo usuário (apenas Administrador).
- * Gera uma senha provisória e a retorna pra exibição no admin.
- * A senha NÃO é persistida em plain-text em lugar nenhum.
+ * Admin define a senha + decide se o usuário precisa trocá-la no primeiro
+ * acesso. A senha NÃO é persistida em plain-text — só vai pro auth.users
+ * já com hash bcrypt.
  */
 export async function createUsuario(
   raw: unknown,
-): Promise<ActionResult<{ id: string; senhaProvisoria: string }>> {
+): Promise<ActionResult<{ id: string; senhaDefinida: string; forcouTroca: boolean }>> {
   const user = await requireCurrentUser()
   if (!can(user, "usuarios", "criar")) {
     return { ok: false, error: "Apenas o Administrador pode criar usuários." }
@@ -37,17 +38,17 @@ export async function createUsuario(
   }
 
   const values = parsed.data
-  const senhaProvisoria = gerarSenhaProvisoria(12)
   const iniciais = derivarIniciais(values.nome)
 
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("criar_usuario_admin", {
     p_email: values.email,
-    p_senha: senhaProvisoria,
+    p_senha: values.senha,
     p_nome: values.nome,
     p_perfil_id: values.perfil_id,
     p_empresa_ids: values.empresa_ids,
     p_iniciais: iniciais,
+    p_forcar_troca: values.forcar_troca_senha,
   })
 
   if (error) {
@@ -57,7 +58,11 @@ export async function createUsuario(
   revalidatePath("/usuarios")
   return {
     ok: true,
-    data: { id: data as string, senhaProvisoria },
+    data: {
+      id: data as string,
+      senhaDefinida: values.senha,
+      forcouTroca: values.forcar_troca_senha,
+    },
   }
 }
 

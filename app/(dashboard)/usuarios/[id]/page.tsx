@@ -52,7 +52,7 @@ export default async function UsuarioDetailPage({
   const [{ data: perfil }, perfisRes, empresasRes, { data: rels }] =
     await Promise.all([
       supabase.from("perfis_acesso").select("nome").eq("id", u.perfil_id).single(),
-      supabase.from("perfis_acesso").select("id, nome").eq("ativo", true).order("nome"),
+      supabase.from("perfis_acesso").select("id, nome, empresa_id").eq("ativo", true).order("nome"),
       supabase.from("empresas").select("id, nome, slug").eq("ativo", true).order("nome"),
       supabase
         .from("usuarios_empresas")

@@ -9,16 +9,42 @@ import {
   perfilCreateSchema,
   perfilUpdateSchema,
   sanitizarPermissoes,
+  type PerfilComissaoOverride,
 } from "@/lib/schemas/perfil"
 import { permissoesTodas } from "@/lib/constants/permissoes"
 import type { ActionResult } from "@/app/(dashboard)/clientes/actions"
 
 const PERFIL_ADMIN = "Administrador"
+const NOMES_RESERVADOS = [
+  "Administrador",
+  "Gerente",
+  "Agente",
+  "Agente Magic Trips",
+  "Agente Del Mondo",
+]
 
 /**
- * Cria um novo perfil customizado (sistema=false).
- * Apenas Administrador.
+ * Sincroniza os overrides de comissão de um perfil agente.
+ * Substitui completamente o conjunto: apaga todos os overrides existentes e
+ * insere os novos. O caller já filtrou pra mandar só overrides reais (valores
+ * diferentes do default da empresa).
  */
+async function syncComissoesOverrides(
+  perfilId: string,
+  overrides: PerfilComissaoOverride[],
+) {
+  const supabase = await createClient()
+  await supabase.from("perfis_comissoes").delete().eq("perfil_id", perfilId)
+  if (overrides.length === 0) return
+  await supabase.from("perfis_comissoes").insert(
+    overrides.map((o) => ({
+      perfil_id: perfilId,
+      origem_id: o.origem_id,
+      percentual: o.percentual,
+    })),
+  )
+}
+
 export async function createPerfil(
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
@@ -29,23 +55,17 @@ export async function createPerfil(
 
   const parsed = perfilCreateSchema.safeParse(raw)
   if (!parsed.success) {
-    const err = parsed.error.flatten().fieldErrors
     return {
       ok: false,
       error: "Verifique os campos.",
-      fieldErrors: flattenFieldErrors(err),
+      fieldErrors: flattenFieldErrors(parsed.error.flatten().fieldErrors),
     }
   }
 
-  const { nome, permissoes } = parsed.data
+  const { nome, tipo, empresa_id, permissoes, comissoes } = parsed.data
   const supabase = await createClient()
 
-  // Bloqueia colisão com nomes de perfis fixos
-  if (
-    ["Administrador", "Gerente", "Agente"]
-      .map((n) => n.toLowerCase())
-      .includes(nome.toLowerCase())
-  ) {
+  if (NOMES_RESERVADOS.map((n) => n.toLowerCase()).includes(nome.toLowerCase())) {
     return {
       ok: false,
       error: "Este nome é reservado para um perfil do sistema.",
@@ -57,6 +77,8 @@ export async function createPerfil(
     .from("perfis_acesso")
     .insert({
       nome,
+      tipo,
+      empresa_id,
       sistema: false,
       ativo: true,
       permissoes: sanitizarPermissoes(permissoes),
@@ -75,22 +97,24 @@ export async function createPerfil(
     return { ok: false, error: error?.message ?? "Falha ao criar perfil." }
   }
 
+  // Salva overrides se for agente e admin tiver passado a lista
+  if (tipo === "agente" && comissoes && comissoes.length > 0) {
+    await syncComissoesOverrides(novo.id, comissoes)
+  }
+
   await logAudit(user.id, "criar", novo.id, null, {
     nome,
+    tipo,
+    empresa_id,
     permissoes,
     sistema: false,
+    comissoes_override_count: comissoes?.length ?? 0,
   })
 
   revalidatePath("/perfis")
   return { ok: true, data: { id: novo.id } }
 }
 
-/**
- * Atualiza um perfil existente.
- *  - Administrador: read-only (não permite update)
- *  - Perfis sistema=true: nome bloqueado (mantém o original), permissões editáveis
- *  - Perfis sistema=false: tudo editável
- */
 export async function updatePerfil(
   id: string,
   raw: unknown,
@@ -112,7 +136,7 @@ export async function updatePerfil(
   const supabase = await createClient()
   const { data: antes } = await supabase
     .from("perfis_acesso")
-    .select("id, nome, sistema, permissoes, ativo")
+    .select("id, nome, sistema, permissoes, ativo, empresa_id, tipo")
     .eq("id", id)
     .single()
 
@@ -126,33 +150,51 @@ export async function updatePerfil(
     }
   }
 
-  const updates: { nome?: string; permissoes?: Record<string, Record<string, boolean>> } = {}
+  const updates: {
+    nome?: string
+    tipo?: "operacao" | "agente"
+    empresa_id?: string | null
+    permissoes?: Record<string, Record<string, boolean>>
+  } = {}
   if (parsed.data.permissoes !== undefined) {
     updates.permissoes = sanitizarPermissoes(parsed.data.permissoes)
   }
-  // Nome só pode mudar em perfis NÃO-sistema. Trigger no banco também protege.
-  if (parsed.data.nome !== undefined && !antes.sistema) {
-    updates.nome = parsed.data.nome
+  // Nome/tipo/empresa editáveis pra todos exceto Administrador (bloqueado acima).
+  if (parsed.data.nome !== undefined) updates.nome = parsed.data.nome
+  if (parsed.data.tipo !== undefined) updates.tipo = parsed.data.tipo
+  if (parsed.data.empresa_id !== undefined) {
+    updates.empresa_id = parsed.data.empresa_id
   }
 
-  if (Object.keys(updates).length === 0) {
-    return { ok: false, error: "Nada a atualizar." }
-  }
-
-  const { error } = await supabase
-    .from("perfis_acesso")
-    .update(updates)
-    .eq("id", id)
-
-  if (error) {
-    if (error.code === "23505") {
-      return {
-        ok: false,
-        error: "Já existe um perfil com esse nome.",
-        fieldErrors: { nome: "Nome já em uso." },
+  if (Object.keys(updates).length > 0) {
+    const { error } = await supabase
+      .from("perfis_acesso")
+      .update(updates)
+      .eq("id", id)
+    if (error) {
+      if (error.code === "23505") {
+        return {
+          ok: false,
+          error: "Já existe um perfil com esse nome.",
+          fieldErrors: { nome: "Nome já em uso." },
+        }
       }
+      return { ok: false, error: error.message }
     }
-    return { ok: false, error: error.message }
+  }
+
+  // Comissões: só rola quando o perfil é (ou virou) agente.
+  const tipoEfetivo = updates.tipo ?? antes.tipo
+  if (parsed.data.comissoes !== undefined) {
+    if (tipoEfetivo === "agente") {
+      await syncComissoesOverrides(id, parsed.data.comissoes)
+    } else {
+      // Trocou pra operação → limpa overrides remanescentes
+      await supabase.from("perfis_comissoes").delete().eq("perfil_id", id)
+    }
+  } else if (updates.tipo === "operacao") {
+    // Sem comissoes no payload mas mudou pra operacao → limpa
+    await supabase.from("perfis_comissoes").delete().eq("perfil_id", id)
   }
 
   await logAudit(user.id, "editar", id, antes, { ...antes, ...updates })
@@ -162,9 +204,6 @@ export async function updatePerfil(
   return { ok: true }
 }
 
-/**
- * Ativa/desativa um perfil. Apenas perfis sistema=false.
- */
 export async function togglePerfilAtivo(
   id: string,
   ativo: boolean,
@@ -182,8 +221,22 @@ export async function togglePerfilAtivo(
     .single()
 
   if (!antes) return { ok: false, error: "Perfil não encontrado." }
-  if (antes.sistema) {
-    return { ok: false, error: "Perfis do sistema não podem ser desativados." }
+  if (antes.nome === PERFIL_ADMIN) {
+    return { ok: false, error: "O perfil Administrador não pode ser desativado." }
+  }
+
+  // Inativar exige que não haja usuários atrelados. Reativar é sempre permitido.
+  if (ativo === false) {
+    const { count } = await supabase
+      .from("usuarios")
+      .select("id", { count: "exact", head: true })
+      .eq("perfil_id", id)
+    if ((count ?? 0) > 0) {
+      return {
+        ok: false,
+        error: `Existem ${count} usuário(s) neste perfil. Mude-os de perfil antes de inativar.`,
+      }
+    }
   }
 
   const { error } = await supabase
@@ -200,10 +253,6 @@ export async function togglePerfilAtivo(
   return { ok: true }
 }
 
-/**
- * Exclui um perfil customizado (sistema=false).
- * Bloqueia se houver usuários atrelados.
- */
 export async function deletePerfil(id: string): Promise<ActionResult> {
   const user = await requireCurrentUser()
   if (!can(user, "perfis", "excluir")) {
@@ -243,14 +292,7 @@ export async function deletePerfil(id: string): Promise<ActionResult> {
   redirect("/perfis")
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers locais (exportação a partir do módulo de clientes seria override)
-// ─────────────────────────────────────────────────────────────────────────────
-
 export async function resetPermissoesAdmin() {
-  // Helper raramente usado — garante que o perfil Administrador tem TODAS as
-  // permissões marcadas (sincroniza com o catálogo). Pode ser chamado após
-  // adicionar um módulo novo.
   const user = await requireCurrentUser()
   if (!can(user, "perfis", "editar")) {
     return { ok: false as const, error: "Sem permissão." }
@@ -284,7 +326,7 @@ async function logAudit(
   const supabase = await createClient()
   await supabase.from("audit_logs").insert({
     usuario_id: usuarioId,
-    empresa_id: null, // perfis são globais (não pertencem a empresa)
+    empresa_id: null,
     acao,
     entidade: "perfil_acesso",
     entidade_id: entidadeId,

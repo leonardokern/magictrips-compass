@@ -1,8 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { Building2, ChevronLeft, FileText, Pencil } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Building2, ChevronLeft, FileText } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/server"
 import { requireCurrentUser } from "@/lib/hooks/use-current-user"
@@ -13,6 +12,7 @@ import {
   TipoFornecedorBadge,
 } from "@/components/fornecedores/fornecedor-badges"
 import { FornecedorAcoes } from "@/components/fornecedores/fornecedor-acoes"
+import { EditarFornecedorButton } from "@/components/fornecedores/editar-fornecedor-button"
 import type { TipoFornecedor } from "@/lib/schemas/fornecedor"
 
 export const metadata: Metadata = {
@@ -65,17 +65,14 @@ export default async function FornecedorDetailPage({
         </Link>
 
         {permEditar && (
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="border-white/10 bg-transparent text-white/70 hover:bg-white/[0.04] hover:text-white"
-          >
-            <Link href={`/fornecedores/${f.id}/editar`}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar
-            </Link>
-          </Button>
+          <EditarFornecedorButton
+            id={f.id}
+            initial={{
+              nome: f.nome,
+              cnpj: f.cnpj,
+              tipo: f.tipo as TipoFornecedor | null,
+            }}
+          />
         )}
       </div>
 

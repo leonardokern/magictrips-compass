@@ -60,7 +60,7 @@ export default async function UsuariosPage({
   const supabase = await createClient()
 
   const [{ data: perfis }, { data: empresasAtivas }] = await Promise.all([
-    supabase.from("perfis_acesso").select("id, nome").eq("ativo", true).order("nome"),
+    supabase.from("perfis_acesso").select("id, nome, empresa_id").eq("ativo", true).order("nome"),
     supabase.from("empresas").select("id, nome, slug").eq("ativo", true).order("nome"),
   ])
 

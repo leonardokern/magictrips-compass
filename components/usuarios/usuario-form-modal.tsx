@@ -2,11 +2,22 @@
 
 import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Building2, Mail, ShieldCheck, User2 } from "lucide-react"
+import {
+  Building2,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Mail,
+  ShieldCheck,
+  User2,
+  Wand2,
+} from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { gerarSenhaProvisoria } from "@/lib/utils/password"
 import {
   Dialog,
   DialogClose,
@@ -30,7 +41,7 @@ import {
   updateUsuario,
 } from "@/app/(dashboard)/usuarios/actions"
 
-type Perfil = { id: string; nome: string }
+type Perfil = { id: string; nome: string; empresa_id: string | null }
 type Empresa = { id: string; nome: string; slug: string }
 
 type ModeProps =
@@ -62,6 +73,9 @@ type FormState = {
   email: string
   perfil_id: string
   empresa_ids: string[]
+  /** Só usado em mode=create. */
+  senha: string
+  forcar_troca_senha: boolean
 }
 
 const EMPTY: FormState = {
@@ -69,6 +83,8 @@ const EMPTY: FormState = {
   email: "",
   perfil_id: "",
   empresa_ids: [],
+  senha: "",
+  forcar_troca_senha: true,
 }
 
 export function UsuarioFormModal(props: Props) {
@@ -76,6 +92,7 @@ export function UsuarioFormModal(props: Props) {
   const [isPending, startTransition] = useTransition()
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [senhaProv, setSenhaProv] = useState<{ senha: string; nome: string } | null>(null)
+  const [mostrarSenha, setMostrarSenha] = useState(false)
   const [v, setV] = useState<FormState>(EMPTY)
 
   const isCreate = props.mode === "create"
@@ -89,6 +106,8 @@ export function UsuarioFormModal(props: Props) {
         email: props.initial.email,
         perfil_id: props.initial.perfil_id,
         empresa_ids: props.initial.empresa_ids,
+        senha: "",
+        forcar_troca_senha: true,
       })
     } else {
       setV(EMPTY)
@@ -97,9 +116,24 @@ export function UsuarioFormModal(props: Props) {
   }, [props.open, props.mode, isCreate])
 
   function update<K extends keyof FormState>(k: K, val: FormState[K]) {
-    setV((s) => ({ ...s, [k]: val }))
+    setV((s) => {
+      const next = { ...s, [k]: val }
+      // Se trocou pra um perfil scoped a uma empresa, força essa empresa
+      if (k === "perfil_id") {
+        const perfilNovo = props.perfis.find((p) => p.id === (val as string))
+        if (perfilNovo?.empresa_id) {
+          next.empresa_ids = [perfilNovo.empresa_id]
+        }
+      }
+      return next
+    })
     if (errors[k as string]) setErrors((e) => ({ ...e, [k as string]: "" }))
   }
+
+  // Perfil corrente + se é scoped a uma empresa específica
+  const perfilSelecionado = props.perfis.find((p) => p.id === v.perfil_id)
+  const perfilEmpresaId = perfilSelecionado?.empresa_id ?? null
+  const permiteMultiEmpresa = perfilEmpresaId === null
 
   // Iniciais derivadas só pro preview do avatar — não são salvas
   const previewIniciais = derivarIniciaisLocal(v.nome)
@@ -114,26 +148,39 @@ export function UsuarioFormModal(props: Props) {
       return
     }
 
-    startTransition(async () => {
-      const payload = {
-        nome: v.nome,
-        email: v.email,
-        perfil_id: v.perfil_id,
-        empresa_ids: v.empresa_ids,
-      }
+    if (isCreate && (v.senha?.length ?? 0) < 8) {
+      setErrors((e) => ({ ...e, senha: "Senha precisa ter no mínimo 8 caracteres." }))
+      toast.error("Defina uma senha com no mínimo 8 caracteres.")
+      return
+    }
 
+    startTransition(async () => {
       if (isCreate) {
-        const r = await createUsuario(payload)
+        const r = await createUsuario({
+          nome: v.nome,
+          email: v.email,
+          perfil_id: v.perfil_id,
+          empresa_ids: v.empresa_ids,
+          senha: v.senha,
+          forcar_troca_senha: v.forcar_troca_senha,
+        })
         if (!r.ok) {
           if (r.fieldErrors) setErrors(r.fieldErrors)
           toast.error(r.error)
           return
         }
         if (r.data) {
-          setSenhaProv({ senha: r.data.senhaProvisoria, nome: payload.nome })
+          setSenhaProv({ senha: r.data.senhaDefinida, nome: v.nome })
           props.onSuccess?.(r.data.id)
         }
         return
+      }
+
+      const payload = {
+        nome: v.nome,
+        email: v.email,
+        perfil_id: v.perfil_id,
+        empresa_ids: v.empresa_ids,
       }
 
       // edit
@@ -236,20 +283,98 @@ export function UsuarioFormModal(props: Props) {
               </Select>
             </Field>
 
-            {/* Empresas — multi-select com logos */}
+            {/* Empresas — multi (Admin/Gerente) ou empresa fixa (Agentes) */}
             <Field
-              label="Empresas com acesso"
+              label={permiteMultiEmpresa ? "Empresas com acesso" : "Empresa"}
               icon={<Building2 className="h-3.5 w-3.5" />}
               error={errors.empresa_ids}
-              hint="Toque na logo para selecionar. Marcar todas = acesso completo."
+              hint={
+                !v.perfil_id
+                  ? "Selecione primeiro o perfil."
+                  : permiteMultiEmpresa
+                    ? "Toque na logo para selecionar. Marcar todas = acesso completo."
+                    : "Este perfil é específico desta empresa — vínculo automático."
+              }
             >
               <EmpresaSelector
-                empresas={props.empresas}
+                empresas={
+                  perfilEmpresaId
+                    ? props.empresas.filter((e) => e.id === perfilEmpresaId)
+                    : props.empresas
+                }
                 selecionadas={v.empresa_ids}
                 onChange={(ids) => update("empresa_ids", ids)}
-                disabled={isPending}
+                disabled={isPending || !v.perfil_id || !permiteMultiEmpresa}
+                singleSelect={!permiteMultiEmpresa}
               />
             </Field>
+
+            {/* Senha — só em create */}
+            {isCreate && (
+              <div className="space-y-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
+                <Field
+                  label="Senha"
+                  icon={<KeyRound className="h-3.5 w-3.5" />}
+                  error={errors.senha}
+                  hint="Mínimo 8 caracteres. Use o botão pra gerar uma senha forte."
+                >
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        type={mostrarSenha ? "text" : "password"}
+                        value={v.senha}
+                        onChange={(e) => update("senha", e.target.value)}
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        className="pr-10 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setMostrarSenha((s) => !s)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-white/45 hover:bg-white/[0.06] hover:text-white"
+                        aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+                      >
+                        {mostrarSenha ? (
+                          <EyeOff className="h-3.5 w-3.5" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        update("senha", gerarSenhaProvisoria(12))
+                        setMostrarSenha(true)
+                      }}
+                      className="border-white/10 bg-transparent text-white/75 hover:bg-white/[0.04] hover:text-white"
+                    >
+                      <Wand2 className="mr-1 h-3.5 w-3.5" />
+                      Gerar
+                    </Button>
+                  </div>
+                </Field>
+
+                <div className="flex items-start justify-between gap-3 rounded-md border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+                  <div>
+                    <p className="text-sm font-medium text-white">
+                      Solicitar troca no primeiro acesso
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-white/45">
+                      {v.forcar_troca_senha
+                        ? "O usuário será obrigado a trocar a senha quando logar pela primeira vez."
+                        : "A senha definida acima será a senha final do usuário."}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={v.forcar_troca_senha}
+                    onCheckedChange={(c) => update("forcar_troca_senha", c)}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+            )}
 
             <DialogFooter>
               <DialogClose asChild>

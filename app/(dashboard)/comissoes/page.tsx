@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import Image from "next/image"
 import { Info, Sparkles, TrendingUp } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/server"
@@ -14,25 +15,32 @@ export const metadata: Metadata = {
 type Regra = {
   id: string
   empresa_id: string
+  origem_id: string
   origem: string
+  ordem: number
   percentual: number
   observacao: string | null
 }
 
 type Empresa = { id: string; nome: string; slug: string }
 
-const EMPRESA_ACCENT: Record<string, { ring: string; bg: string; chip: string }> = {
+const EMPRESA_ACCENT: Record<
+  string,
+  { ring: string; bg: string; chip: string; logo: string }
+> = {
   // Magic Trips: cor oficial teal escuro (#004E5A → nexus-deep)
   "magic-trips": {
     ring: "from-nexus-deep/40 via-nexus-deep/15 to-transparent",
     bg: "bg-nexus-deep/15",
     chip: "border-nexus-deep/40 bg-nexus-deep/20 text-nexus-bright",
+    logo: "/brand/magic-trips-white.png",
   },
   // Del Mondo: cor oficial azul brilhante (#1498D5 → nexus-bright)
   "del-mondo": {
     ring: "from-nexus-bright/30 via-nexus-bright/10 to-transparent",
     bg: "bg-nexus-bright/10",
     chip: "border-nexus-bright/30 bg-nexus-bright/15 text-nexus-bright",
+    logo: "/brand/del-mondo-white.png",
   },
 }
 
@@ -55,27 +63,30 @@ export default async function ComissoesPage() {
   const podeEditar = can(user, "comissoes", "editar")
 
   const supabase = await createClient()
-  const [{ data: empresas = [] }, { data: regras = [] }] = await Promise.all([
+  const [{ data: empresas = [] }, { data: regrasRaw }] = await Promise.all([
     supabase.from("empresas").select("id, nome, slug").eq("ativo", true).order("nome"),
-    supabase.from("comissoes_regras").select("id, empresa_id, origem, percentual, observacao"),
+    supabase
+      .from("comissoes_regras")
+      .select(
+        "id, empresa_id, origem_id, percentual, observacao, origens_venda(nome, ordem)",
+      ),
   ])
 
+  const regras: Regra[] = (regrasRaw ?? []).map((r) => ({
+    id: r.id,
+    empresa_id: r.empresa_id,
+    origem_id: r.origem_id,
+    origem: r.origens_venda?.nome ?? "—",
+    ordem: r.origens_venda?.ordem ?? 0,
+    percentual: Number(r.percentual),
+    observacao: r.observacao,
+  }))
+
   const regrasPorEmpresa = new Map<string, Regra[]>()
-  for (const r of (regras ?? []) as Regra[]) {
+  for (const r of regras) {
     const arr = regrasPorEmpresa.get(r.empresa_id) ?? []
     arr.push(r)
     regrasPorEmpresa.set(r.empresa_id, arr)
-  }
-
-  // Estatísticas: média e faixa por empresa
-  const stats = new Map<string, { min: number; max: number; media: number }>()
-  for (const [empId, arr] of regrasPorEmpresa) {
-    const valores = arr.map((r) => Number(r.percentual))
-    stats.set(empId, {
-      min: Math.min(...valores),
-      max: Math.max(...valores),
-      media: valores.reduce((a, b) => a + b, 0) / valores.length,
-    })
   }
 
   return (
@@ -104,8 +115,7 @@ export default async function ComissoesPage() {
         {(empresas as Empresa[]).map((empresa) => {
           const accent = EMPRESA_ACCENT[empresa.slug] ?? EMPRESA_ACCENT["magic-trips"]!
           const arr = regrasPorEmpresa.get(empresa.id) ?? []
-          arr.sort((a, b) => a.origem.localeCompare(b.origem, "pt-BR"))
-          const s = stats.get(empresa.id)
+          arr.sort((a, b) => a.ordem - b.ordem || a.origem.localeCompare(b.origem, "pt-BR"))
 
           return (
             <Card
@@ -118,37 +128,16 @@ export default async function ComissoesPage() {
                 className={`pointer-events-none absolute -top-32 left-0 right-0 h-64 bg-gradient-to-b ${accent.ring}`}
               />
 
-              <CardHeader className="relative">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-lg font-semibold text-white">
-                      {empresa.nome}
-                    </CardTitle>
-                    <p className="mt-0.5 text-xs uppercase tracking-[0.18em] text-white/45">
-                      {empresa.slug === "magic-trips"
-                        ? "Régua dinâmica 30/40/50"
-                        : "Regra fixa 12%"}
-                    </p>
-                  </div>
-
-                  {s && (
-                    <div className="flex items-center gap-3 text-right">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-white/45">
-                          Média
-                        </p>
-                        <p className="text-lg font-semibold text-white tabular-nums">
-                          {s.media.toFixed(1)}%
-                        </p>
-                      </div>
-                      <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${accent.chip}`}>
-                        {s.min === s.max
-                          ? `${s.min.toFixed(0)}% fixo`
-                          : `${s.min.toFixed(0)}–${s.max.toFixed(0)}%`}
-                      </span>
-                    </div>
-                  )}
-                </div>
+              <CardHeader className="relative px-2 py-0">
+                <CardTitle className="flex h-40 items-center justify-center">
+                  <Image
+                    src={accent.logo}
+                    alt={empresa.nome}
+                    width={1440}
+                    height={576}
+                    className="h-full w-auto max-w-full select-none object-contain"
+                  />
+                </CardTitle>
               </CardHeader>
 
               <CardContent className="relative space-y-1">

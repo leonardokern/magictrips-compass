@@ -20,16 +20,16 @@ export default async function LoginPage({ searchParams }: Props) {
         {/* spacer top */}
         <div aria-hidden className="hidden md:block md:h-8" />
 
-        <div className="flex w-full max-w-sm flex-col items-center gap-8">
+        <div className="flex w-full max-w-sm flex-col items-center gap-2">
           {/* Logo principal Nexus (cores nativas das duas marcas combinadas) */}
-          <div className="flex flex-col items-center gap-2">
+          <div className="-mb-6 flex flex-col items-center">
             <Image
               src="/brand/nexus-logo.png"
               alt="Nexus — Magic Trips"
-              width={384}
-              height={384}
+              width={512}
+              height={512}
               priority
-              className="h-52 w-52 select-none object-contain drop-shadow-[0_8px_32px_rgba(20,152,213,0.25)]"
+              className="h-72 w-72 select-none object-contain [filter:brightness(0)_invert(1)_drop-shadow(0_8px_40px_rgba(20,152,213,0.35))]"
             />
           </div>
 

@@ -89,3 +89,17 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+/* Loader: barra de progresso indeterminada no topo (usada em loading.tsx) */
+@keyframes nexus-progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.nexus-progress {
+  animation: nexus-progress-slide 1.2s ease-in-out infinite;
+}

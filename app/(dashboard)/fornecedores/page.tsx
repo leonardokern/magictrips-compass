@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -19,6 +18,7 @@ import {
   FornecedorAtivoBadge,
   TipoFornecedorBadge,
 } from "@/components/fornecedores/fornecedor-badges"
+import { NovoFornecedorButton } from "@/components/fornecedores/novo-fornecedor-button"
 import type { TipoFornecedor } from "@/lib/schemas/fornecedor"
 
 export const metadata: Metadata = {
@@ -100,14 +100,7 @@ export default async function FornecedoresPage({
           </p>
         </div>
 
-        {can(user, "fornecedores", "criar") && (
-          <Button asChild className="bg-nexus-bright text-white hover:bg-nexus-bright-soft">
-            <Link href="/fornecedores/novo">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo fornecedor
-            </Link>
-          </Button>
-        )}
+        {can(user, "fornecedores", "criar") && <NovoFornecedorButton />}
       </div>
 
       <FornecedoresFilters q={q} tipo={tipo} status={status} />

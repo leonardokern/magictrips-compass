@@ -3,8 +3,13 @@ import Image from "next/image"
 import Link from "next/link"
 import { getCurrentUser } from "@/lib/hooks/use-current-user"
 import { buildPermissions } from "@/lib/hooks/use-permissions"
+import { LogOut } from "lucide-react"
 import { SidebarNav, type NavItem, type NavSection } from "@/components/dashboard/sidebar-nav"
 import { UserMenu } from "@/components/dashboard/user-menu"
+import { NotificationsButton } from "@/components/dashboard/notifications-button"
+import { APP_VERSION } from "@/lib/version"
+import { signOutAction } from "@/app/(dashboard)/actions"
+import { createClient } from "@/lib/supabase/server"
 
 export default async function DashboardLayout({
   children,
@@ -15,6 +20,16 @@ export default async function DashboardLayout({
   if (!user) redirect("/login")
 
   const perms = buildPermissions(user)
+
+  // Lembretes pendentes do usuário logado pro bell do header
+  const supabase = await createClient()
+  const { data: lembretes } = await supabase
+    .from("lembretes")
+    .select("id, tipo, mensagem, referencia_tipo, referencia_id, data_lembrete")
+    .eq("destinatario_id", user.id)
+    .eq("status", "pendente")
+    .order("created_at", { ascending: false })
+    .limit(20)
 
   // Navigation organizada em seções — facilita escalar quando entrar mais módulos
   const sections: NavSection[] = [
@@ -84,10 +99,19 @@ export default async function DashboardLayout({
           ? [{ href: "/perfis", label: "Perfis de Acesso", icon: "perfis" } as NavItem]
           : []),
         ...(perms.can("comissoes", "ler")
-          ? [{ href: "/comissoes", label: "Comissões", icon: "comissoes" } as NavItem]
+          ? [
+              { href: "/comissoes", label: "Comissões", icon: "comissoes" } as NavItem,
+              { href: "/origens", label: "Origens de venda", icon: "origens" } as NavItem,
+            ]
           : []),
-        ...(perms.can("auditoria", "ler")
-          ? [{ href: "/auditoria", label: "Auditoria", icon: "auditoria" } as NavItem]
+        ...(perms.can("tipos_produto", "ler")
+          ? [
+              {
+                href: "/tipos-produto",
+                label: "Tipos de Produto",
+                icon: "tipos_produto",
+              } as NavItem,
+            ]
           : []),
       ],
     },
@@ -113,23 +137,24 @@ export default async function DashboardLayout({
             {/* Brand */}
             <Link
               href="/dashboard"
-              className="flex h-16 items-center gap-3 border-b border-white/[0.06] px-5"
+              className="flex h-20 items-center gap-2 border-b border-white/[0.06] px-3"
             >
-              <div className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-nexus-bright/30 bg-nexus-bright/10">
-                <Image
-                  src="/brand/nexus-icon.png"
-                  alt="Nexus"
-                  width={28}
-                  height={28}
-                  className="h-6 w-6 select-none object-contain"
-                />
-              </div>
+              <Image
+                src="/brand/nexus-icon.png"
+                alt="Nexus"
+                width={72}
+                height={72}
+                className="h-16 w-16 select-none object-contain [filter:brightness(0)_invert(1)]"
+              />
               <div className="flex flex-col leading-tight">
-                <span className="text-sm font-semibold tracking-tight text-white">
+                <span className="text-base font-semibold tracking-tight text-white">
                   Nexus
                 </span>
                 <span className="text-[10px] uppercase tracking-[0.18em] text-white/40">
                   Magic Trips
+                </span>
+                <span className="mt-0.5 text-[10px] font-mono text-white/35">
+                  v{APP_VERSION}
                 </span>
               </div>
             </Link>
@@ -139,20 +164,17 @@ export default async function DashboardLayout({
               <SidebarNav sections={sections} />
             </div>
 
-            {/* Footer — contexto de empresa(s) */}
-            <div className="border-t border-white/[0.06] px-5 py-4">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-white/40">
-                {user.acessaTodasEmpresas
-                  ? "Acesso"
-                  : user.empresas.length === 1
-                    ? "Empresa"
-                    : "Empresas"}
-              </p>
-              <p className="mt-1 text-sm font-medium text-white">
-                {user.acessaTodasEmpresas
-                  ? "Todas as empresas"
-                  : user.empresas.map((e) => e.nome).join(" · ")}
-              </p>
+            {/* Footer — botão de logout */}
+            <div className="border-t border-white/[0.06] p-3">
+              <form action={signOutAction}>
+                <button
+                  type="submit"
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-white/70 transition-colors hover:bg-white/[0.04] hover:text-white"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sair
+                </button>
+              </form>
             </div>
           </aside>
         </div>
@@ -160,20 +182,16 @@ export default async function DashboardLayout({
         {/* Coluna direita */}
         <div className="flex flex-1 flex-col">
           {/* Header */}
-          <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-white/[0.06] bg-background/70 px-6 backdrop-blur-md md:px-8">
-            <h1 className="text-sm font-medium text-white/70">
-              {user.acessaTodasEmpresas
-                ? "Administração geral"
-                : user.empresas.length === 1
-                  ? user.empresas[0]!.nome
-                  : user.empresas.map((e) => e.nome).join(" · ")}
-            </h1>
-            <UserMenu
-              nome={user.nome}
-              iniciais={user.iniciais}
-              email={user.email}
-              perfil={user.perfil.nome}
-            />
+          <header className="sticky top-0 z-20 flex h-16 items-center justify-end border-b border-white/[0.06] bg-background/70 px-6 backdrop-blur-md md:px-8">
+            <div className="flex items-center gap-3">
+              <NotificationsButton lembretes={lembretes ?? []} />
+              <UserMenu
+                nome={user.nome}
+                iniciais={user.iniciais}
+                email={user.email}
+                perfil={user.perfil.nome}
+              />
+            </div>
           </header>
 
           <main className="flex-1 overflow-y-auto px-6 py-8 md:px-8">

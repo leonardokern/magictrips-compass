@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -19,6 +18,7 @@ import {
   StatusClienteBadge,
   TipoClienteBadge,
 } from "@/components/clientes/status-badge"
+import { NovoClienteButton } from "@/components/clientes/novo-cliente-button"
 import type { StatusCliente, TipoCliente } from "@/lib/schemas/cliente"
 
 export const metadata: Metadata = {
@@ -62,7 +62,7 @@ export default async function ClientesPage({
 
   const supabase = await createClient()
 
-  // Empresas (só para Administrador Master)
+  // Empresas: Admin Master vê todas; outros perfis veem só as suas (modal usa).
   let empresas: { id: string; nome: string }[] = []
   if (isAdminMaster) {
     const { data } = await supabase
@@ -71,7 +71,13 @@ export default async function ClientesPage({
       .eq("ativo", true)
       .order("nome")
     empresas = data ?? []
+  } else {
+    empresas = user.empresas.map((e) => ({ id: e.id, nome: e.nome }))
   }
+  const empresasParaModal = empresas
+  // Não-Admin: trava no único acesso (ou primeiro se tiver vários scoped).
+  const defaultEmpresaIdModal = isAdminMaster ? undefined : empresas[0]?.id
+  const lockEmpresaModal = !isAdminMaster && empresas.length === 1
 
   // Build query
   let query = supabase
@@ -120,12 +126,11 @@ export default async function ClientesPage({
         </div>
 
         {can(user, "clientes", "criar") && (
-          <Button asChild className="bg-nexus-bright text-white hover:bg-nexus-bright-soft">
-            <Link href="/clientes/novo">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo cliente
-            </Link>
-          </Button>
+          <NovoClienteButton
+            empresas={empresasParaModal}
+            defaultEmpresaId={defaultEmpresaIdModal}
+            lockEmpresa={lockEmpresaModal}
+          />
         )}
       </div>
 
@@ -134,7 +139,7 @@ export default async function ClientesPage({
         tipo={tipo}
         status={status}
         empresaId={empresaFiltro}
-        empresas={empresas}
+        empresas={isAdminMaster ? empresas : []}
         showEmpresaFilter={isAdminMaster}
       />
 

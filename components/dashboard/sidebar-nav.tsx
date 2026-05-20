@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
+  Boxes,
   Building2,
   CreditCard,
   History,
@@ -12,6 +13,7 @@ import {
   Receipt,
   Shield,
   ShoppingCart,
+  Tag,
   TrendingUp,
   UserCog,
   Users,
@@ -44,6 +46,8 @@ const ICONS: Record<string, LucideIcon> = {
   usuarios: UserCog,
   perfis: Shield,
   comissoes: Percent,
+  origens: Tag,
+  tipos_produto: Boxes,
   auditoria: History,
 }
 

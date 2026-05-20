@@ -3,35 +3,72 @@ import { todasPermissoesValidas } from "@/lib/constants/permissoes"
 
 const PERMS_VALIDAS = todasPermissoesValidas()
 
-/**
- * Schema do JSONB de permissões. Aceita qualquer estrutura {modulo: {acao: bool}}
- * mas o Server Action descarta pares inválidos antes de persistir.
- */
 export const permissoesSchema = z.record(
   z.string(),
   z.record(z.string(), z.boolean()),
 )
-
 export type PermissoesValue = z.infer<typeof permissoesSchema>
 
-export const perfilCreateSchema = z.object({
-  nome: z
-    .string()
-    .trim()
-    .min(2, "Nome muito curto")
-    .max(60, "Nome muito longo"),
-  permissoes: permissoesSchema,
-})
-
-export const perfilUpdateSchema = z.object({
-  nome: z.string().trim().min(2).max(60).optional(),
-  permissoes: permissoesSchema.optional(),
-})
+export const PERFIL_TIPOS = ["operacao", "agente"] as const
+export type PerfilTipo = (typeof PERFIL_TIPOS)[number]
 
 /**
- * Normaliza um JSONB de permissões removendo pares (modulo, acao) que não
- * existem no catálogo atual. Garante que dados antigos não vazem.
+ * Override de comissão por origem — só persistido em perfis tipo='agente'
+ * e somente quando o valor difere do default da empresa.
  */
+export const perfilComissaoOverrideSchema = z.object({
+  origem_id: z.string().uuid(),
+  percentual: z.number().min(0).max(100),
+})
+export type PerfilComissaoOverride = z.infer<typeof perfilComissaoOverrideSchema>
+
+/**
+ * Regras de escopo:
+ *   tipo='operacao' → empresa_id obrigatoriamente null
+ *   tipo='agente'   → empresa_id obrigatoriamente uuid
+ */
+const baseShape = {
+  nome: z.string().trim().min(2, "Nome muito curto").max(60, "Nome muito longo"),
+  tipo: z.enum(PERFIL_TIPOS),
+  empresa_id: z.string().uuid("Empresa inválida").nullable(),
+  permissoes: permissoesSchema,
+  /** Overrides de comissão (somente agente). */
+  comissoes: z.array(perfilComissaoOverrideSchema).optional(),
+}
+
+export const perfilCreateSchema = z
+  .object(baseShape)
+  .refine(
+    (v) => (v.tipo === "agente" ? v.empresa_id !== null : v.empresa_id === null),
+    {
+      message:
+        "Perfis tipo Agente precisam de uma empresa; Operação é sempre cross-empresa.",
+      path: ["empresa_id"],
+    },
+  )
+
+export const perfilUpdateSchema = z
+  .object({
+    nome: z.string().trim().min(2).max(60).optional(),
+    tipo: z.enum(PERFIL_TIPOS).optional(),
+    empresa_id: z.string().uuid().nullable().optional(),
+    permissoes: permissoesSchema.optional(),
+    comissoes: z.array(perfilComissaoOverrideSchema).optional(),
+  })
+  .refine(
+    (v) => {
+      if (v.tipo === undefined) return true
+      return v.tipo === "agente"
+        ? v.empresa_id !== null && v.empresa_id !== undefined
+        : v.empresa_id === null || v.empresa_id === undefined
+    },
+    {
+      message:
+        "Perfis tipo Agente precisam de uma empresa; Operação é sempre cross-empresa.",
+      path: ["empresa_id"],
+    },
+  )
+
 export function sanitizarPermissoes(input: PermissoesValue): PermissoesValue {
   const out: PermissoesValue = {}
   for (const [modulo, acoes] of Object.entries(input ?? {})) {

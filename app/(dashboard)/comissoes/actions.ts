@@ -34,7 +34,7 @@ export async function updateComissaoRegra(
   // Snapshot antes pra audit_logs
   const { data: antes } = await supabase
     .from("comissoes_regras")
-    .select("id, empresa_id, origem, percentual, observacao")
+    .select("id, empresa_id, origem_id, percentual, observacao")
     .eq("id", id)
     .single()
 

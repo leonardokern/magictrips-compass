@@ -15,6 +15,8 @@ type Props = {
   selecionadas: string[]
   onChange: (ids: string[]) => void
   disabled?: boolean
+  /** Quando true, clicar numa empresa substitui a seleção (radio-style). */
+  singleSelect?: boolean
 }
 
 // Mapeia o slug da empresa para o logo correspondente em public/brand
@@ -42,9 +44,16 @@ export function EmpresaSelector({
   selecionadas,
   onChange,
   disabled,
+  singleSelect,
 }: Props) {
   function toggle(id: string) {
     if (disabled) return
+    if (singleSelect) {
+      // Comportamento radio: clicar numa não-selecionada substitui;
+      // clicar na selecionada não faz nada (sempre precisa ter 1).
+      if (selecionadas[0] !== id) onChange([id])
+      return
+    }
     if (selecionadas.includes(id)) {
       onChange(selecionadas.filter((x) => x !== id))
     } else {
@@ -65,7 +74,7 @@ export function EmpresaSelector({
             disabled={disabled}
             aria-pressed={isOn}
             className={cn(
-              "group relative flex h-20 items-center justify-center overflow-hidden rounded-lg border bg-gradient-to-br transition-all",
+              "group relative flex h-56 items-center justify-center overflow-hidden rounded-lg border bg-gradient-to-br transition-all",
               isOn
                 ? `border-transparent ring-2 ${cfg.ring} ${cfg.bg} opacity-100`
                 : "border-white/10 bg-white/[0.02] opacity-50 hover:border-white/20 hover:opacity-80",
@@ -75,10 +84,10 @@ export function EmpresaSelector({
             <Image
               src={cfg.src}
               alt={empresa.nome}
-              width={200}
-              height={80}
+              width={800}
+              height={320}
               className={cn(
-                "h-14 w-auto select-none object-contain transition-transform",
+                "h-56 w-auto select-none object-contain transition-transform",
                 isOn ? "scale-100" : "scale-95 grayscale",
               )}
             />

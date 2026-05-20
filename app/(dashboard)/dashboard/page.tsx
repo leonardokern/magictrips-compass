@@ -1,48 +1,87 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { TrendingUp } from "lucide-react"
 import {
-  BarChart3,
-  CalendarClock,
-  ClipboardCheck,
-  Trophy,
-  Users,
-  Wallet,
-  Plus,
-} from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { requireCurrentUser } from "@/lib/hooks/use-current-user"
 import { can } from "@/lib/hooks/use-permissions"
 import { createClient } from "@/lib/supabase/server"
-import { KpiCard } from "@/components/dashboard/kpi-card"
-import {
-  StatusClienteBadge,
-  TipoClienteBadge,
-} from "@/components/clientes/status-badge"
-import type { StatusCliente, TipoCliente } from "@/lib/schemas/cliente"
+import { AreaChartCard } from "@/components/dashboard/charts/area-chart-card"
+import { BarChartCard } from "@/components/dashboard/charts/bar-chart-card"
+import { DonutChartCard } from "@/components/dashboard/charts/donut-chart-card"
+import { LineChartCard } from "@/components/dashboard/charts/line-chart-card"
 
 export const metadata: Metadata = {
   title: "Início",
 }
 
+// Cores para as empresas (alinhadas com a paleta Nexus)
+const EMPRESA_COR: Record<string, string> = {
+  "magic-trips": "#004E5A",
+  "del-mondo": "#1498D5",
+}
+const COR_FALLBACK = "#46B1E0"
+
+function formatDiaLabel(d: Date): string {
+  // "Jul 1" em pt-BR fica "1 jul"
+  return d
+    .toLocaleDateString("pt-BR", { day: "numeric", month: "short" })
+    .replace(".", "")
+}
+
+function buildDailySeries(
+  rows: { created_at: string }[],
+  days: number,
+): { label: string; value: number }[] {
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+
+  const slots = Array.from({ length: days }, (_, i) => {
+    const d = new Date(hoje)
+    d.setDate(d.getDate() - (days - 1 - i))
+    return { date: d, value: 0 }
+  })
+
+  for (const r of rows) {
+    const c = new Date(r.created_at)
+    c.setHours(0, 0, 0, 0)
+    const slot = slots.find((s) => s.date.getTime() === c.getTime())
+    if (slot) slot.value += 1
+  }
+
+  return slots.map((s) => ({
+    label: formatDiaLabel(s.date),
+    value: s.value,
+  }))
+}
+
 export default async function DashboardPage() {
   const user = await requireCurrentUser()
-  const primeiroNome = user.nome.split(" ")[0]
   const supabase = await createClient()
 
-  // KPIs: o que dá pra mostrar de verdade agora.
-  // Demais KPIs (receita, comissão, ticket médio, ranking) virão com Vendas.
+  const dataLimite28 = new Date()
+  dataLimite28.setDate(dataLimite28.getDate() - 27)
+  dataLimite28.setHours(0, 0, 0, 0)
+
+  const dataLimite7 = new Date()
+  dataLimite7.setDate(dataLimite7.getDate() - 6)
+  dataLimite7.setHours(0, 0, 0, 0)
+
+  // Queries em paralelo: counts, séries temporais, lista de empresas
   const [
     { count: totalClientes },
-    { count: clientesAtivos },
     { count: clientesFaturados },
     { count: vendasPendentes },
+    { count: totalUsuarios },
+    { data: clientes28 },
+    { data: clientes7 },
+    { data: empresas },
   ] = await Promise.all([
     supabase.from("clientes").select("id", { count: "exact", head: true }),
-    supabase
-      .from("clientes")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "ativo"),
     supabase
       .from("clientes")
       .select("id", { count: "exact", head: true })
@@ -51,331 +90,328 @@ export default async function DashboardPage() {
       .from("vendas")
       .select("id", { count: "exact", head: true })
       .eq("status", "pendente_validacao"),
+    supabase
+      .from("usuarios")
+      .select("id", { count: "exact", head: true })
+      .eq("ativo", true),
+    supabase
+      .from("clientes")
+      .select("created_at, tipo, empresa_id")
+      .gte("created_at", dataLimite28.toISOString())
+      .order("created_at"),
+    supabase
+      .from("clientes")
+      .select("created_at, tipo")
+      .gte("created_at", dataLimite7.toISOString())
+      .order("created_at"),
+    supabase.from("empresas").select("id, nome, slug").eq("ativo", true).order("nome"),
   ])
 
-  // Últimos clientes cadastrados (preview da atividade recente)
-  const { data: ultimosClientes } = await supabase
-    .from("clientes")
-    .select("id, nome, tipo, status, created_at")
-    .order("created_at", { ascending: false })
-    .limit(5)
+  // Distribuição de clientes por empresa
+  const distrPorEmpresa = new Map<string, number>()
+  for (const c of clientes28 ?? []) {
+    distrPorEmpresa.set(c.empresa_id, (distrPorEmpresa.get(c.empresa_id) ?? 0) + 1)
+  }
+  const donutData = (empresas ?? []).map((e) => ({
+    label: e.nome,
+    value: distrPorEmpresa.get(e.id) ?? 0,
+    color: EMPRESA_COR[e.slug] ?? COR_FALLBACK,
+  }))
+  const donutTotal = donutData.reduce((acc, d) => acc + d.value, 0)
+
+  // Série diária pro chart principal (28 dias)
+  const serie28 = buildDailySeries(clientes28 ?? [], 28)
+  const total28 = serie28.reduce((acc, p) => acc + p.value, 0)
+
+  // Série pro line chart (7 dias)
+  const serie7 = buildDailySeries(clientes7 ?? [], 7)
+  const total7 = serie7.reduce((acc, p) => acc + p.value, 0)
+
+  // Bar chart: 7 dias, divindo regular vs faturado
+  const slotsHoje = new Date()
+  slotsHoje.setHours(0, 0, 0, 0)
+  const slots7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(slotsHoje)
+    d.setDate(d.getDate() - (6 - i))
+    return { date: d, regular: 0, faturado: 0 }
+  })
+  for (const c of clientes7 ?? []) {
+    const dia = new Date(c.created_at)
+    dia.setHours(0, 0, 0, 0)
+    const slot = slots7.find((s) => s.date.getTime() === dia.getTime())
+    if (!slot) continue
+    if (c.tipo === "faturado") slot.faturado += 1
+    else slot.regular += 1
+  }
+  const barData = slots7.map((s) => ({
+    label: formatDiaLabel(s.date),
+    value: s.regular,
+    value2: s.faturado,
+  }))
+
+  // Empresas list — quantos clientes em cada
+  const empresasComCount = (empresas ?? []).map((e) => ({
+    ...e,
+    clientes: distrPorEmpresa.get(e.id) ?? 0,
+    cor: EMPRESA_COR[e.slug] ?? COR_FALLBACK,
+  }))
 
   return (
-    <div className="space-y-8">
-      {/* Saudação */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-semibold tracking-tight text-white">
-            Olá, {primeiroNome}
-            <span className="ml-2">👋</span>
-          </h2>
-          <p className="mt-1 text-sm text-white/55">
-            Visão geral do Nexus · {new Date().toLocaleDateString("pt-BR", {
-              day: "2-digit",
-              month: "long",
-              year: "numeric",
-            })}
-          </p>
-        </div>
+    <div className="space-y-6">
+      {/* Grid top: chart grande à esquerda + card de distribuição à direita */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Big chart — 2/3 width */}
+        <Card className="border-white/[0.06] bg-white/[0.02] lg:col-span-2">
+          <CardHeader className="pb-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold text-white">
+                  Novos clientes
+                </CardTitle>
+                <p className="mt-0.5 text-xs text-white/45">Últimos 28 dias</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-semibold tabular-nums text-white">
+                  {total28}
+                </p>
+                <p className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-white/45">
+                  no período
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <AreaChartCard data={serie28} tooltipSuffix="cliente(s)" />
+            </div>
+          </CardContent>
+        </Card>
 
-        {can(user, "clientes", "criar") && (
-          <Button asChild className="bg-nexus-bright text-white hover:bg-nexus-bright-soft">
-            <Link href="/clientes/novo">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo cliente
-            </Link>
-          </Button>
-        )}
+        {/* Distribuição + sub-stats — 1/3 width */}
+        <Card className="border-white/[0.06] bg-white/[0.02]">
+          <CardHeader className="pb-2">
+            <div className="flex items-start justify-between">
+              <CardTitle className="text-base font-semibold text-white">
+                Distribuição
+              </CardTitle>
+              <span className="text-[10px] uppercase tracking-[0.18em] text-white/45">
+                últimos 28d
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="h-40">
+              {donutTotal > 0 ? (
+                <DonutChartCard
+                  data={donutData}
+                  centerValue={String(donutTotal)}
+                  centerLabel="clientes"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-xs text-white/40">
+                  Sem cadastros no período
+                </div>
+              )}
+            </div>
+
+            {/* Legenda das fatias */}
+            <div className="space-y-1.5">
+              {donutData.map((d) => (
+                <div
+                  key={d.label}
+                  className="flex items-center justify-between text-xs"
+                >
+                  <span className="flex items-center gap-2 text-white/75">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full"
+                      style={{ backgroundColor: d.color }}
+                    />
+                    {d.label}
+                  </span>
+                  <span className="tabular-nums text-white/55">{d.value}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Sub-stat cards (2x2) */}
+            <div className="grid grid-cols-2 gap-2">
+              <SubStat
+                label="Total clientes"
+                value={totalClientes ?? 0}
+                hint={`${clientesFaturados ?? 0} faturados`}
+              />
+              <SubStat
+                label="Usuários"
+                value={totalUsuarios ?? 0}
+                hint="ativos"
+              />
+              <SubStat
+                label="Aprovação"
+                value={vendasPendentes ?? 0}
+                hint="vendas pendentes"
+                accent={(vendasPendentes ?? 0) > 0 ? "amber" : undefined}
+              />
+              <SubStat
+                label="Este mês"
+                value={total28}
+                hint="novos clientes"
+                accent="bright"
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* KPIs principais */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-xs font-medium uppercase tracking-[0.18em] text-white/45">
-            Resumo
-          </h3>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <KpiCard
-            label="Clientes ativos"
-            value={clientesAtivos ?? 0}
-            hint={`de ${totalClientes ?? 0} cadastrados`}
-            icon={Users}
-            accent="nexus"
-            href="/clientes?status=ativo"
-          />
-          <KpiCard
-            label="Clientes faturados"
-            value={clientesFaturados ?? 0}
-            hint="ciclo mensal"
-            icon={ClipboardCheck}
-            accent="violet"
-            href="/clientes?tipo=faturado"
-          />
-          <KpiCard
-            label="Aguardando aprovação"
-            value={vendasPendentes ?? 0}
-            hint={
-              (vendasPendentes ?? 0) === 0
-                ? "Sem pendências"
-                : "vendas para revisar"
-            }
-            icon={CalendarClock}
-            accent="amber"
-            href={
-              can(user, "vendas", "aprovar") ? "/vendas?status=pendente_validacao" : undefined
-            }
-          />
-          <KpiCard
-            label="Receita do mês"
-            value={null}
-            hint="vendas aprovadas no mês"
-            icon={Wallet}
-            accent="emerald"
-            empty
-          />
-        </div>
-      </section>
-
-      {/* Grid principal: atividade + placeholders de analytics */}
+      {/* Grid bottom: 2 charts à esquerda + empresas à direita */}
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* Atividade recente */}
-        <Card className="border-white/[0.06] bg-white/[0.02] lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardTitle className="text-base font-semibold text-white">
-                Últimos clientes cadastrados
-              </CardTitle>
-              <p className="mt-0.5 text-xs text-white/45">
-                Atividade mais recente da sua empresa
+        {/* Line chart pequeno */}
+        <Card className="border-white/[0.06] bg-white/[0.02]">
+          <CardHeader className="pb-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold text-white">
+                  Cadastros recentes
+                </CardTitle>
+                <p className="mt-0.5 text-xs text-white/45">Últimos 7 dias</p>
+              </div>
+              <p className="text-xl font-semibold tabular-nums text-white">
+                {total7}
               </p>
             </div>
-            {can(user, "clientes", "ler") && (
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="text-white/60 hover:bg-white/[0.04] hover:text-white"
-              >
-                <Link href="/clientes">Ver todos</Link>
-              </Button>
-            )}
           </CardHeader>
           <CardContent>
-            {!ultimosClientes || ultimosClientes.length === 0 ? (
-              <EmptyState
-                title="Nenhum cliente ainda"
-                description="Cadastre o primeiro cliente para começar a usar o sistema."
-                actionLabel={can(user, "clientes", "criar") ? "Cadastrar cliente" : undefined}
-                actionHref="/clientes/novo"
-              />
-            ) : (
-              <ul className="-mx-2 divide-y divide-white/[0.05]">
-                {ultimosClientes.map((c) => (
-                  <li key={c.id} className="px-2">
-                    <Link
-                      href={`/clientes/${c.id}`}
-                      className="flex items-center justify-between gap-3 rounded-md py-3 transition-colors hover:bg-white/[0.03]"
+            <div className="h-44">
+              <LineChartCard data={serie7} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Bar chart */}
+        <Card className="border-white/[0.06] bg-white/[0.02]">
+          <CardHeader className="pb-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold text-white">
+                  Por tipo de cliente
+                </CardTitle>
+                <p className="mt-0.5 text-xs text-white/45">Últimos 7 dias</p>
+              </div>
+              <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider text-white/55">
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-nexus-bright" />
+                  Regular
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  Faturado
+                </span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-44">
+              <BarChartCard data={barData} showSecondary />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Empresas */}
+        <Card className="border-white/[0.06] bg-white/[0.02]">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <CardTitle className="text-base font-semibold text-white">
+                Empresas
+              </CardTitle>
+              {can(user, "clientes", "ler") && (
+                <Link
+                  href="/clientes"
+                  className="text-xs text-nexus-bright hover:text-nexus-bright-soft"
+                >
+                  Ver todos
+                </Link>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="-mt-1 space-y-1">
+              <div className="grid grid-cols-[1fr_auto] gap-2 border-b border-white/[0.05] pb-2 text-[10px] uppercase tracking-[0.18em] text-white/45">
+                <span>Nome</span>
+                <span>Clientes</span>
+              </div>
+              {empresasComCount.length === 0 ? (
+                <p className="py-4 text-center text-xs text-white/45">
+                  Sem empresas ativas.
+                </p>
+              ) : (
+                empresasComCount.map((e) => (
+                  <div
+                    key={e.id}
+                    className="grid grid-cols-[1fr_auto] items-center gap-2 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-white">
+                        {e.nome}
+                      </p>
+                      <p className="text-[11px] text-white/45">{e.slug}</p>
+                    </div>
+                    <span
+                      className="rounded-full border px-2.5 py-0.5 text-xs font-medium tabular-nums"
+                      style={{
+                        color: e.cor,
+                        borderColor: `${e.cor}55`,
+                        backgroundColor: `${e.cor}15`,
+                      }}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-xs font-medium text-white/80">
-                          {getInitials(c.nome)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-white">
-                            {c.nome}
-                          </p>
-                          <p className="text-xs text-white/45">
-                            {formatRelativeDate(c.created_at)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <TipoClienteBadge tipo={c.tipo as TipoCliente} />
-                        <StatusClienteBadge status={c.status as StatusCliente} />
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Ranking de agentes — placeholder */}
-        <Card className="border-white/[0.06] bg-white/[0.02]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold text-white">
-              <Trophy className="h-4 w-4 text-amber-400" />
-              Top agentes
-            </CardTitle>
-            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white/55">
-              Em breve
-            </span>
-          </CardHeader>
-          <CardContent>
-            <SkeletonRanking />
-            <p className="mt-3 text-xs text-white/45">
-              Ranking por receita e comissão será exibido aqui quando o módulo de
-              Vendas for entregue.
-            </p>
+                      {e.clientes}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Mais analytics futuros */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="border-white/[0.06] bg-white/[0.02]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold text-white">
-              <BarChart3 className="h-4 w-4 text-violet-400" />
-              Receita mensal
-            </CardTitle>
-            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white/55">
-              Em breve
-            </span>
-          </CardHeader>
-          <CardContent>
-            <SkeletonChart />
-            <p className="mt-3 text-xs text-white/45">
-              Comparativo mês a mês entre Magic Trips e Del Mondo.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-white/[0.06] bg-white/[0.02]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold text-white">
-              <ClipboardCheck className="h-4 w-4 text-emerald-400" />
-              Top produtos vendidos
-            </CardTitle>
-            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white/55">
-              Em breve
-            </span>
-          </CardHeader>
-          <CardContent>
-            <SkeletonBars />
-            <p className="mt-3 text-xs text-white/45">
-              Aéreo, Hotel, Cruzeiro, Pacotes — distribuição por tipo de produto.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  )
-}
-
-function EmptyState({
-  title,
-  description,
-  actionLabel,
-  actionHref,
-}: {
-  title: string
-  description: string
-  actionLabel?: string
-  actionHref?: string
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center py-10 text-center">
-      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04]">
-        <Users className="h-4 w-4 text-white/60" />
-      </div>
-      <p className="text-sm font-medium text-white">{title}</p>
-      <p className="mt-1 text-xs text-white/45">{description}</p>
-      {actionLabel && actionHref && (
-        <Button
-          asChild
-          size="sm"
-          className="mt-4 bg-nexus-bright text-white hover:bg-nexus-bright-soft"
-        >
-          <Link href={actionHref}>{actionLabel}</Link>
-        </Button>
+      {/* Faixa de hint sobre dados pendentes */}
+      {vendasPendentes === 0 && totalClientes === 0 && (
+        <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-white/55">
+          <TrendingUp className="h-4 w-4 shrink-0 text-nexus-bright" />
+          Cadastre clientes e registre vendas para ver os números preencherem
+          estes cards.
+        </div>
       )}
     </div>
   )
 }
 
-function SkeletonRanking() {
+function SubStat({
+  label,
+  value,
+  hint,
+  accent,
+}: {
+  label: string
+  value: number
+  hint?: string
+  accent?: "bright" | "amber"
+}) {
+  const valueColor =
+    accent === "amber"
+      ? "text-amber-300"
+      : accent === "bright"
+        ? "text-nexus-bright"
+        : "text-white"
   return (
-    <div className="space-y-3">
-      {[68, 52, 38, 28].map((w, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[10px] font-medium text-white/60">
-            {i + 1}
-          </div>
-          <div className="flex-1 space-y-1.5">
-            <div className="h-2 w-20 rounded-full bg-white/[0.06]" />
-            <div
-              className="h-1.5 rounded-full bg-gradient-to-r from-amber-500/40 to-amber-500/0"
-              style={{ width: `${w}%` }}
-            />
-          </div>
-        </div>
-      ))}
+    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+      <p className="text-[10px] uppercase tracking-[0.16em] text-white/45">
+        {label}
+      </p>
+      <p className={`mt-1 text-lg font-semibold tabular-nums ${valueColor}`}>
+        {value}
+      </p>
+      {hint && (
+        <p className="mt-0.5 truncate text-[10px] text-white/40">{hint}</p>
+      )}
     </div>
   )
-}
-
-function SkeletonChart() {
-  const heights = [40, 65, 50, 75, 60, 85, 70, 90, 55, 80, 70, 95]
-  return (
-    <div className="flex h-32 items-end gap-1.5">
-      {heights.map((h, i) => (
-        <div
-          key={i}
-          className="flex-1 rounded-t bg-gradient-to-t from-violet-500/20 to-violet-500/5"
-          style={{ height: `${h}%` }}
-        />
-      ))}
-    </div>
-  )
-}
-
-function SkeletonBars() {
-  const items = [
-    { label: "Aéreo", value: 78, color: "from-emerald-500/40 to-emerald-500/0" },
-    { label: "Pacote", value: 62, color: "from-sky-500/40 to-sky-500/0" },
-    { label: "Hotel", value: 45, color: "from-nexus-bright/40 to-nexus-bright/0" },
-    { label: "Cruzeiro", value: 28, color: "from-violet-500/40 to-violet-500/0" },
-    { label: "Outros", value: 12, color: "from-amber-500/40 to-amber-500/0" },
-  ]
-  return (
-    <div className="space-y-3">
-      {items.map((item) => (
-        <div key={item.label}>
-          <div className="mb-1 flex items-center justify-between text-xs">
-            <span className="text-white/55">{item.label}</span>
-            <span className="text-white/30">—</span>
-          </div>
-          <div
-            className={`h-1.5 rounded-full bg-gradient-to-r ${item.color}`}
-            style={{ width: `${item.value}%` }}
-          />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function getInitials(nome: string): string {
-  const parts = nome.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase()
-  return `${parts[0]![0]}${parts[parts.length - 1]![0]}`.toUpperCase()
-}
-
-function formatRelativeDate(iso: string): string {
-  const d = new Date(iso)
-  const now = new Date()
-  const diffMs = now.getTime() - d.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  if (diffDays === 0) return "Hoje"
-  if (diffDays === 1) return "Ontem"
-  if (diffDays < 7) return `${diffDays} dias atrás`
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} semanas atrás`
-  return d.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
 }
