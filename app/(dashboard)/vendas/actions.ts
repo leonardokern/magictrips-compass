@@ -933,3 +933,203 @@ export async function getDadosNovaVenda(): Promise<ActionResult<DadosNovaVenda>>
     },
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Carrega venda existente para edição pelo Gerente/Admin
+// ─────────────────────────────────────────────────────────────────────────────
+
+function numStr(v: number | string | null | undefined): string {
+  if (v == null || v === "") return ""
+  const n = Number(v)
+  if (isNaN(n) || n === 0) return ""
+  return n.toFixed(2).replace(".", ",")
+}
+
+export type VendaParaEditar = {
+  dados: DadosNovaVenda
+  draft: {
+    step: 1
+    maxStep: 5
+    empresaId: string
+    dataVenda: string
+    dataInicioViagem: string
+    dataFimViagem: string
+    clienteValue: string | null
+    clienteNovo: {
+      tipo_pessoa: "fisica" | "juridica"
+      nome: string; cpf: string; data_nascimento: string
+      razao_social: string; nome_fantasia: string; cnpj: string; responsavel: string
+      email: string; telefone: string
+      tipo: "regular" | "faturado"; dia_faturamento: string
+    }
+    pax: number
+    origem: string
+    indicacao: number
+    agenteId: string
+    observacoesGerais: string
+    produtos: {
+      id: string
+      tipo_produto_id: string
+      valor_venda_str: string; valor_custo_str: string; rav_str: string
+      rav_extra_cliente_str: string; rav_extra_fornecedor_str: string
+      comissao_vendedor_str: string
+      valores_extras: Record<string, string>
+      pgto_forma: string; pgto_cartao_id: string
+      pgto_valor_total_str: string; pgto_entrada_str: string
+      pgto_num_parcelas: number
+    }[]
+    cobrancaItens: {
+      tipo: string; outro_descricao: string; valor_total_str: string
+      num_parcelas: number; plataforma_link: string
+      taxa_adquirente_str: string; valor_liquido_str: string
+      data_inicio: string; data_primeiro_recebimento: string; observacoes: string
+    }[]
+    cobrancaObs: string
+    passageiros: { id: string; nome: string; cpf: string; data_nascimento: string }[]
+  }
+}
+
+export async function getVendaParaEditar(
+  id: string,
+): Promise<ActionResult<VendaParaEditar>> {
+  const user = await requireCurrentUser()
+  if (!can(user, "vendas", "aprovar")) {
+    return { ok: false, error: "Sem permissão." }
+  }
+
+  const supabase = await createClient()
+
+  const [dadosRes, { data: v }, { data: produtos }, { data: passageiros }, { data: cobranca }] =
+    await Promise.all([
+      getDadosNovaVenda(),
+      supabase
+        .from("vendas")
+        .select("id, empresa_id, cliente_id, usuario_id, data_venda, origem, indicacao_percentual, comissao_percentual, pax, observacoes")
+        .eq("id", id)
+        .maybeSingle(),
+      supabase
+        .from("venda_produtos")
+        .select("tipo_produto_id, valor_venda, valor_custo, rav, rav_extra_cliente, rav_extra_fornecedor, comissao_vendedor, valores_extras, pgto_forma, pgto_cartao_id, pgto_valor_total, pgto_entrada, pgto_num_parcelas, pgto_valor_parcela, pgto_data_debito, data_inicio_viagem, data_fim_viagem")
+        .eq("venda_id", id)
+        .order("ordem"),
+      supabase
+        .from("venda_passageiros")
+        .select("nome, cpf, data_nascimento")
+        .eq("venda_id", id)
+        .order("ordem"),
+      supabase
+        .from("cobranca_cliente")
+        .select("observacoes, itens:cobranca_cliente_itens(tipo, valor_total, num_parcelas, valor_parcela, plataforma_link, taxa_adquirente, valor_liquido, data_inicio, data_primeiro_recebimento, observacoes)")
+        .eq("venda_id", id)
+        .maybeSingle(),
+    ])
+
+  if (!dadosRes.ok) return { ok: false, error: dadosRes.error ?? "Erro ao carregar dados." }
+  if (!dadosRes.data) return { ok: false, error: "Erro ao carregar dados." }
+  if (!v) return { ok: false, error: "Venda não encontrada." }
+
+  const dataInicioViagem = (produtos ?? []).find((p) => p.data_inicio_viagem)?.data_inicio_viagem ?? ""
+  const dataFimViagem    = (produtos ?? []).find((p) => p.data_fim_viagem)?.data_fim_viagem ?? ""
+
+  type ItemRaw = {
+    tipo: string; valor_total: number | null; num_parcelas: number | null
+    valor_parcela: number | null; plataforma_link: string | null
+    taxa_adquirente: number | null; valor_liquido: number | null
+    data_inicio: string | null; data_primeiro_recebimento: string | null
+    observacoes: string | null
+  }
+  const itensRaw = (cobranca?.itens as unknown as ItemRaw[] | null) ?? []
+
+  const draft: VendaParaEditar["draft"] = {
+    step: 1,
+    maxStep: 5,
+    empresaId:        v.empresa_id ?? "",
+    dataVenda:        v.data_venda ?? "",
+    dataInicioViagem: dataInicioViagem ?? "",
+    dataFimViagem:    dataFimViagem ?? "",
+    clienteValue:     v.cliente_id ?? null,
+    clienteNovo: {
+      tipo_pessoa: "fisica", nome: "", cpf: "", data_nascimento: "",
+      razao_social: "", nome_fantasia: "", cnpj: "", responsavel: "",
+      email: "", telefone: "", tipo: "regular", dia_faturamento: "",
+    },
+    pax:               v.pax ?? 1,
+    origem:            v.origem ?? "",
+    indicacao:         Number(v.indicacao_percentual ?? 0),
+    agenteId:          v.usuario_id ?? user.id,
+    observacoesGerais: v.observacoes ?? "",
+    produtos: (produtos ?? []).map((p) => ({
+      id:                      crypto.randomUUID(),
+      tipo_produto_id:          p.tipo_produto_id ?? "",
+      valor_venda_str:          numStr(p.valor_venda),
+      valor_custo_str:          numStr(p.valor_custo),
+      rav_str:                  numStr(p.rav),
+      rav_extra_cliente_str:    numStr(p.rav_extra_cliente),
+      rav_extra_fornecedor_str: numStr(p.rav_extra_fornecedor),
+      comissao_vendedor_str:    numStr(p.comissao_vendedor),
+      valores_extras:           (p.valores_extras as Record<string, string> | null) ?? {},
+      pgto_forma:               p.pgto_forma ?? "cartao",
+      pgto_cartao_id:           p.pgto_cartao_id ?? "",
+      pgto_valor_total_str:     numStr(p.pgto_valor_total),
+      pgto_entrada_str:         numStr(p.pgto_entrada),
+      pgto_num_parcelas:        Number(p.pgto_num_parcelas ?? 1),
+    })),
+    cobrancaItens: itensRaw.map((it) => ({
+      tipo:                     it.tipo ?? "pix",
+      outro_descricao:          it.tipo === "outro" ? (it.observacoes ?? "") : "",
+      valor_total_str:          numStr(it.valor_total),
+      num_parcelas:             Number(it.num_parcelas ?? 1),
+      plataforma_link:          it.plataforma_link ?? "",
+      taxa_adquirente_str:      numStr(it.taxa_adquirente),
+      valor_liquido_str:        numStr(it.valor_liquido),
+      data_inicio:              it.data_inicio ?? "",
+      data_primeiro_recebimento: it.data_primeiro_recebimento ?? "",
+      observacoes:              it.tipo !== "outro" ? (it.observacoes ?? "") : "",
+    })),
+    cobrancaObs: cobranca?.observacoes ?? "",
+    passageiros: (passageiros ?? []).map((p) => ({
+      id:              crypto.randomUUID(),
+      nome:            p.nome ?? "",
+      cpf:             p.cpf ?? "",
+      data_nascimento: p.data_nascimento ?? "",
+    })),
+  }
+
+  return { ok: true, data: { dados: dadosRes.data, draft } }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Edita e aprova venda em uma operação (modo Gerente)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function editarEAprovarVenda(
+  id: string,
+  raw: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  const user = await requireCurrentUser()
+  if (!can(user, "vendas", "aprovar")) {
+    return { ok: false, error: "Sem permissão para aprovar vendas." }
+  }
+
+  const parsed = vendaCreateSchema.safeParse(raw)
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Verifique os campos.",
+      fieldErrors: flatten(parsed.error.flatten().fieldErrors),
+    }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("editar_venda_completa", {
+    p_venda_id: id,
+    p_payload:  JSON.parse(JSON.stringify(parsed.data)),
+    p_aprovar:  true,
+  })
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath("/vendas")
+  revalidatePath("/dashboard")
+  return { ok: true, data: { id } }
+}

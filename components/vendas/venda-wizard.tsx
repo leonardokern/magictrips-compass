@@ -9,6 +9,7 @@ import {
   Building2,
   CalendarDays,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -43,7 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ClienteCombobox, type ClienteOption } from "./cliente-combobox"
-import { criarVenda } from "@/app/(dashboard)/vendas/actions"
+import { criarVenda, editarEAprovarVenda } from "@/app/(dashboard)/vendas/actions"
 import { salvarRascunho, descartarRascunho } from "@/app/(dashboard)/vendas/rascunho-actions"
 import {
   COBRANCA_TIPO_LABEL,
@@ -123,6 +124,10 @@ type Props = {
   /** Passo mais avançado atingido — para salvar no rascunho e restaurar corretamente. */
   maxStep: 1 | 2 | 3 | 4 | 5
   onMaxStepChange: (step: 1 | 2 | 3 | 4 | 5) => void
+  /** Modo edição por Gerente/Admin: steps 1-4 têm "Salvar e Revisar", step 5 tem "Validar Venda". */
+  modoGerente?: boolean
+  /** ID da venda sendo editada (obrigatório em modoGerente). */
+  vendaId?: string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -544,6 +549,59 @@ export function VendaWizard(props: Props) {
     if (step > 1) setStep((step - 1) as 1 | 2 | 3 | 4 | 5)
   }
 
+  // ── Avançar direto para revisão (modo Gerente) ────────────────────────────
+
+  function avancarParaRevisao() {
+    let errs: Record<string, string> = {}
+    if (step === 1) errs = { ...validarStep1(), ...asyncErrors }
+    if (step === 2) errs = validarStep2()
+    if (step === 3) errs = validarStep3()
+    if (step === 4) errs = validarStep4()
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs)
+      const first = Object.values(errs)[0]
+      if (first) toast.error(first)
+      return
+    }
+    setErrors({})
+    if (step === 3) {
+      const totalCobrado = cobrancaItens.reduce(
+        (acc, it) => acc + (parseValorComSoma(it.valor_total_str) || 0), 0,
+      )
+      if (Math.abs(totalCobrado - totalVenda) >= 0.01) {
+        setConfirmValorAberto(true)
+        return
+      }
+      sincronizarPassageiros()
+    }
+    setStep(5)
+    props.onMaxStepChange(5)
+  }
+
+  // ── Submit modo Gerente: edita + aprova ───────────────────────────────────
+
+  function onSubmitGerente() {
+    const errs = { ...validarStep1(), ...asyncErrors, ...validarStep2(), ...validarStep3(), ...validarStep4() }
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs)
+      const first = Object.values(errs)[0]
+      if (first) toast.error(first)
+      return
+    }
+    if (!props.vendaId) return
+    const payload = construirPayload()
+    startTransition(async () => {
+      const r = await editarEAprovarVenda(props.vendaId!, payload)
+      if (!r.ok) {
+        toast.error(r.error)
+        return
+      }
+      toast.success("Venda editada e aprovada com sucesso.")
+      props.onSuccessClose?.()
+      router.refresh()
+    })
+  }
+
   // ── Salvar rascunho ───────────────────────────────────────────────────────
 
   function coletarEstadoAtual(): WizardDraftData {
@@ -950,31 +1008,55 @@ export function VendaWizard(props: Props) {
         </Button>
 
         <div className="flex items-center gap-2">
-          {/* Salvar rascunho — disponível em qualquer passo */}
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={handleSalvarRascunho}
-            disabled={isPending || isSavingDraft}
-            className="border border-white/10 text-white/55 hover:border-white/20 hover:text-white/80"
-          >
-            {isSavingDraft ? (
-              <Spinner className="mr-1.5 h-3.5 w-3.5" />
-            ) : (
-              <Save className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            {rascunhoId ? "Atualizar rascunho" : "Salvar rascunho"}
-          </Button>
-
-          {step < 5 ? (
+          {/* Salvar rascunho — oculto em modoGerente */}
+          {!props.modoGerente && (
             <Button
               type="button"
-              onClick={avancar}
+              variant="ghost"
+              onClick={handleSalvarRascunho}
               disabled={isPending || isSavingDraft}
-              className="bg-nexus-bright text-white hover:bg-nexus-bright-soft"
+              className="border border-white/10 text-white/55 hover:border-white/20 hover:text-white/80"
             >
-              Continuar
-              <ChevronRight className="ml-1 h-4 w-4" />
+              {isSavingDraft ? (
+                <Spinner className="mr-1.5 h-3.5 w-3.5" />
+              ) : (
+                <Save className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {rascunhoId ? "Atualizar rascunho" : "Salvar rascunho"}
+            </Button>
+          )}
+
+          {step < 5 ? (
+            props.modoGerente ? (
+              <Button
+                type="button"
+                onClick={avancarParaRevisao}
+                disabled={isPending}
+                className="bg-nexus-bright text-white hover:bg-nexus-bright-soft"
+              >
+                Salvar e Revisar
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={avancar}
+                disabled={isPending || isSavingDraft}
+                className="bg-nexus-bright text-white hover:bg-nexus-bright-soft"
+              >
+                Continuar
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            )
+          ) : props.modoGerente ? (
+            <Button
+              type="button"
+              onClick={onSubmitGerente}
+              disabled={isPending}
+              className="bg-emerald-600 text-white hover:bg-emerald-500"
+            >
+              {isPending ? "Validando…" : "Validar Venda"}
+              <CheckCircle2 className="ml-1 h-4 w-4" />
             </Button>
           ) : (
             <Button

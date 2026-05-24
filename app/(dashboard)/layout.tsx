@@ -21,8 +21,19 @@ export default async function DashboardLayout({
 
   const perms = buildPermissions(user)
 
-  // Lembretes pendentes do usuário logado pro bell do header
   const supabase = await createClient()
+
+  // Vendas pendentes de aprovação — só para quem pode aprovar (Admin/Gerente)
+  let vendasPendentesCount = 0
+  if (perms.can("vendas", "aprovar")) {
+    const { count } = await supabase
+      .from("vendas")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pendente_validacao")
+    vendasPendentesCount = count ?? 0
+  }
+
+  // Lembretes pendentes do usuário logado pro bell do header
   const { data: lembretes } = await supabase
     .from("lembretes")
     .select("id, tipo, mensagem, referencia_tipo, referencia_id, data_lembrete")
@@ -41,7 +52,7 @@ export default async function DashboardLayout({
       label: "Operação",
       items: [
         ...(perms.can("vendas", "ler")
-          ? [{ href: "/vendas", label: "Vendas", icon: "vendas" } as NavItem]
+          ? [{ href: "/vendas", label: "Vendas", icon: "vendas", badge: vendasPendentesCount || undefined } as NavItem]
           : []),
         ...(perms.can("clientes", "ler")
           ? [{ href: "/clientes", label: "Clientes", icon: "clientes" } as NavItem]

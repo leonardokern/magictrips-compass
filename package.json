@@ -1,6 +1,6 @@
 {
   "name": "magictrips-nexus",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,7 +12,8 @@
     "bump": "node scripts/bump-version.mjs",
     "bump:patch": "node scripts/bump-version.mjs patch",
     "bump:minor": "node scripts/bump-version.mjs minor",
-    "bump:major": "node scripts/bump-version.mjs major"
+    "bump:major": "node scripts/bump-version.mjs major",
+    "hooks:install": "git config core.hooksPath .githooks && echo 'Git hooks ativados.'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

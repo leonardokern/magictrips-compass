@@ -26,6 +26,7 @@ export type NavItem = {
   href: string
   label: string
   icon: string
+  badge?: number
 }
 
 export type NavSection = {
@@ -92,6 +93,14 @@ export function SidebarNav({ sections }: Props) {
                   )}
                 />
                 <span className="truncate">{item.label}</span>
+                {item.badge != null && item.badge > 0 && (
+                  <span
+                    title={`${item.badge} venda${item.badge > 1 ? "s" : ""} aguardando aprovação`}
+                    className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500/20 px-1.5 text-[10px] font-semibold tabular-nums text-amber-300 ring-1 ring-amber-400/30"
+                  >
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                )}
               </Link>
             )
           })}

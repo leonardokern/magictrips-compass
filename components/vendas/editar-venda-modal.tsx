@@ -1,0 +1,143 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
+import { Check } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { ModalLoader } from "@/components/ui/modal-loader"
+import { VendaWizard, STEPS, type WizardDraftData } from "./venda-wizard"
+import { getVendaParaEditar, type DadosNovaVenda } from "@/app/(dashboard)/vendas/actions"
+
+type Props = {
+  vendaId: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+export function EditarVendaModal({ vendaId, open, onOpenChange }: Props) {
+  const [dados, setDados] = useState<DadosNovaVenda | null>(null)
+  const [draft, setDraft] = useState<WizardDraftData | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4 | 5>(1)
+  const [maxWizardStep, setMaxWizardStep] = useState<1 | 2 | 3 | 4 | 5>(5)
+
+  useEffect(() => {
+    if (!open) {
+      setDados(null)
+      setDraft(null)
+      setWizardStep(1)
+      setMaxWizardStep(5)
+      return
+    }
+    setLoading(true)
+    getVendaParaEditar(vendaId).then((r) => {
+      setLoading(false)
+      if (!r.ok) {
+        toast.error(r.error ?? "Erro ao carregar venda.")
+        onOpenChange(false)
+        return
+      }
+      setDados(r.data!.dados)
+      setDraft(r.data!.draft as unknown as WizardDraftData)
+    })
+  }, [open, vendaId, onOpenChange])
+
+  const pronto = !loading && dados && draft
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[92vh] w-[95vw] max-w-6xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b border-white/[0.06] px-6 py-4 pr-14">
+          <DialogTitle>Editar venda</DialogTitle>
+          <DialogDescription>
+            Revise e edite qualquer campo. Ao concluir, clique em{" "}
+            <strong className="text-white">Validar Venda</strong> para aprovar.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Stepper */}
+        {pronto && (
+          <div className="shrink-0 border-b border-white/[0.06] px-6 py-3">
+            <ol className="flex flex-wrap items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2">
+              {STEPS.map((s) => {
+                const Icon = s.icon
+                const ativo = wizardStep === s.num
+                const passado = wizardStep > s.num
+                const base =
+                  "flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-xs uppercase tracking-wider transition-colors"
+                const color = ativo
+                  ? "bg-nexus-bright/15 text-nexus-bright"
+                  : passado
+                    ? "text-emerald-300/80 hover:bg-emerald-400/10 hover:text-emerald-300 cursor-pointer"
+                    : "text-white/35 cursor-default"
+                const inner = (
+                  <>
+                    {passado ? (
+                      <Check className="h-3.5 w-3.5 shrink-0" />
+                    ) : (
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                    )}
+                    <span className="truncate">
+                      {s.num}. {s.label}
+                    </span>
+                  </>
+                )
+                return passado ? (
+                  <li key={s.num} className={`${base} ${color}`}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2"
+                      onClick={() => setWizardStep(s.num as 1 | 2 | 3 | 4 | 5)}
+                      title={`Voltar para ${s.label}`}
+                    >
+                      {inner}
+                    </button>
+                  </li>
+                ) : (
+                  <li
+                    key={s.num}
+                    className={`${base} ${color}`}
+                    aria-current={ativo ? "step" : undefined}
+                  >
+                    {inner}
+                  </li>
+                )
+              })}
+            </ol>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {!pronto ? (
+            <ModalLoader label="Carregando venda…" />
+          ) : (
+            <VendaWizard
+              key={vendaId}
+              {...dados}
+              clientes={dados.clientes.map((c) => ({
+                ...c,
+                cpf: c.cpf ?? "",
+                email: c.email ?? "",
+              }))}
+              initialDraft={draft}
+              initialRascunhoId={null}
+              modoGerente={true}
+              vendaId={vendaId}
+              onSuccessClose={() => onOpenChange(false)}
+              step={wizardStep}
+              onStepChange={setWizardStep}
+              maxStep={maxWizardStep}
+              onMaxStepChange={setMaxWizardStep}
+            />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

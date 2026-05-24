@@ -5,8 +5,8 @@ import "./globals.css"
 
 export const metadata: Metadata = {
   title: {
-    default: "Nexus — Magic Trips",
-    template: "%s · Nexus",
+    default: "Nexus",
+    template: "Nexus",
   },
   description: "Plataforma interna de gestão da Magic Trips e Del Mondo.",
 }

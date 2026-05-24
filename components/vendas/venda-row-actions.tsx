@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { ModalLoader } from "@/components/ui/modal-loader"
 import { VendaResumoPanel } from "./venda-resumo-panel"
+import { EditarVendaModal } from "./editar-venda-modal"
 import {
   aprovarVenda,
   solicitarRevisaoVenda,
@@ -59,6 +60,7 @@ export function VendaRowActions({
 
   // ── Estado dos dialogs ──────────────────────────────────────────
   const [viewOpen, setViewOpen] = useState(false)
+  const [editarOpen, setEditarOpen] = useState(false)
   const [validarOpen, setValidarOpen] = useState(false)
   const [revisaoOpen, setRevisaoOpen] = useState(false)
 
@@ -147,11 +149,21 @@ export function VendaRowActions({
           <IconAction
             icon={Pencil}
             label="Editar venda"
-            onClick={() => router.push(`/vendas/${venda.id}`)}
+            onClick={() => setEditarOpen(true)}
             tone="bright"
           />
         )}
       </div>
+
+      {/* ── Modal de edição (Gerente/Admin) ───────────────────── */}
+      <EditarVendaModal
+        vendaId={venda.id}
+        open={editarOpen}
+        onOpenChange={(o) => {
+          setEditarOpen(o)
+          if (!o) router.refresh()
+        }}
+      />
 
       {/* ── Modal de visualização ──────────────────────────────── */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>

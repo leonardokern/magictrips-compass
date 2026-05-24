@@ -1,0 +1,20 @@
+#!/bin/sh
+# .githooks/pre-push
+#
+# Sobe a versão patch automaticamente antes de cada push.
+# Ativado via: git config core.hooksPath .githooks
+#             (ou npm run hooks:install)
+
+set -e
+
+# Roda o script de bump (atualiza package.json e lib/version.ts)
+node scripts/bump-version.mjs patch
+
+# Lê a nova versão
+VERSION=$(node -e "process.stdout.write(require('./package.json').version)")
+
+# Faz o commit de versão (--no-verify evita recursão)
+git add package.json lib/version.ts
+git commit --no-verify -m "chore: bump to v${VERSION}"
+
+printf "\n  \033[1;32m🚀  Nexus v%s\033[0m — pronto para subir\n\n" "$VERSION"
