@@ -10,7 +10,6 @@ import {
 import type { VendaParaPDF } from "@/app/(dashboard)/vendas/actions"
 import {
   CORES,
-  corEmpresa,
   formatBRL,
   formatDate,
   formatCPF,

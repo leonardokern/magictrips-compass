@@ -48,19 +48,6 @@ function Stat({
   )
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  rascunho: "Rascunho",
-  pendente_validacao: "Aguardando aprovação",
-  aprovado: "Aprovada",
-  cancelado: "Cancelada",
-}
-
-const STATUS_CHIP: Record<string, string> = {
-  rascunho: "border-white/15 bg-white/[0.04] text-white/55",
-  pendente_validacao: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  aprovado: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-  cancelado: "border-rose-500/30 bg-rose-500/10 text-rose-300",
-}
 
 type Produto = VendaDetalhes["produtos"][number]
 
