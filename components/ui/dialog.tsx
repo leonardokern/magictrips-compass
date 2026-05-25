@@ -32,11 +32,22 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, onPointerDownOutside, onInteractOutside, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      // Bloqueia fechar quando o usuário clica fora ou interage fora do modal.
+      // Fechamento só pelo X, ESC ou ação explícita (botão Cancelar/Salvar).
+      // Consumers podem sobrescrever passando `onPointerDownOutside`/`onInteractOutside`.
+      onPointerDownOutside={(e) => {
+        e.preventDefault()
+        onPointerDownOutside?.(e)
+      }}
+      onInteractOutside={(e) => {
+        e.preventDefault()
+        onInteractOutside?.(e)
+      }}
       className={cn(
         // Defaults responsivos:
         //  - max-h-[calc(100vh-2rem)] cap por viewport pra modal nunca exceder a tela

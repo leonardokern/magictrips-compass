@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Bell, ShoppingCart } from "lucide-react"
+import { AlertTriangle, Bell, CheckCircle2, ShoppingCart } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { dispensarLembrete } from "@/app/(dashboard)/notificacoes/actions"
 
@@ -22,10 +22,21 @@ type Props = {
 
 const TIPO_ICONE: Record<string, React.ReactNode> = {
   venda_pendente_validacao: <ShoppingCart className="h-3.5 w-3.5" />,
+  venda_aprovada: <CheckCircle2 className="h-3.5 w-3.5" />,
+  venda_em_revisao: <AlertTriangle className="h-3.5 w-3.5" />,
 }
 
 const TIPO_LABEL: Record<string, string> = {
   venda_pendente_validacao: "Venda aguardando aprovação",
+  venda_aprovada: "Venda aprovada",
+  venda_em_revisao: "Venda devolvida para revisão",
+}
+
+const TIPO_ACCENT: Record<string, string> = {
+  venda_aprovada:
+    "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
+  venda_em_revisao:
+    "border-orange-400/30 bg-orange-400/10 text-orange-300",
 }
 
 export function NotificationsButton({ lembretes }: Props) {
@@ -37,11 +48,12 @@ export function NotificationsButton({ lembretes }: Props) {
 
   function abrirReferencia(l: LembreteItem) {
     if (l.referencia_tipo === "venda" && l.referencia_id) {
-      // Dispensa o lembrete e navega
+      // Dispensa o lembrete e abre o modal da venda na listagem.
+      // O VendaRowActions captura o param ?venda=<id> e abre o modal de visualização.
       startTransition(async () => {
         await dispensarLembrete(l.id)
         setOpen(false)
-        router.push(`/vendas/${l.referencia_id}`)
+        router.push(`/vendas?venda=${l.referencia_id}`)
       })
     }
   }
@@ -104,7 +116,13 @@ export function NotificationsButton({ lembretes }: Props) {
                         disabled={isPending}
                         className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.04]"
                       >
-                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-nexus-bright/30 bg-nexus-bright/10 text-nexus-bright">
+                        <span
+                          className={cn(
+                            "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
+                            TIPO_ACCENT[l.tipo] ??
+                              "border-nexus-bright/30 bg-nexus-bright/10 text-nexus-bright",
+                          )}
+                        >
                           {TIPO_ICONE[l.tipo] ?? <Bell className="h-3.5 w-3.5" />}
                         </span>
                         <div className="flex-1">

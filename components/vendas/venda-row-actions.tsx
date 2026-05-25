@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
-import { Eye, Pencil, CheckCircle, RotateCcw, type LucideIcon } from "lucide-react"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
+import { Eye, Pencil, CheckCircle, RotateCcw, Trash2, type LucideIcon } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { LoaderButton } from "@/components/ui/loader-button"
@@ -22,6 +22,7 @@ import { EditarVendaModal } from "./editar-venda-modal"
 import {
   aprovarVenda,
   solicitarRevisaoVenda,
+  excluirVenda,
   getVendaDetalhes,
   type VendaDetalhes,
 } from "@/app/(dashboard)/vendas/actions"
@@ -44,6 +45,8 @@ type Props = {
   podeAprovar: boolean
   /** Usuário pode editar (gerente/admin com permissão ou agente dono em_revisao). */
   podeEditar: boolean
+  /** Usuário pode excluir esta venda (Admin/Gerente em status aprovado). */
+  podeExcluir?: boolean
   /** Exibe coluna de comissão no painel (Admin/Gerente). */
   mostraComissao: boolean
   /** true = Gerente/Admin (Validar Venda). false = Agente dono (resubmeter). */
@@ -56,16 +59,21 @@ export function VendaRowActions({
   venda,
   podeAprovar,
   podeEditar,
+  podeExcluir = false,
   mostraComissao,
   modoGerente,
 }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
 
   // ── Estado dos dialogs ──────────────────────────────────────────
   const [viewOpen, setViewOpen] = useState(false)
   const [editarOpen, setEditarOpen] = useState(false)
   const [validarOpen, setValidarOpen] = useState(false)
   const [revisaoOpen, setRevisaoOpen] = useState(false)
+  const [excluirOpen, setExcluirOpen] = useState(false)
+  const [motivoExcluir, setMotivoExcluir] = useState("")
 
   // ── Dados lazy do modal de visualização ────────────────────────
   const [detalhes, setDetalhes] = useState<VendaDetalhes | null>(null)
@@ -74,6 +82,7 @@ export function VendaRowActions({
   // ── Pendências de mutation ──────────────────────────────────────
   const [isPendingAprovar, startAprovar] = useTransition()
   const [isPendingRevisao, startRevisao] = useTransition()
+  const [isPendingExcluir, startExcluir] = useTransition()
   const [motivoRevisao, setMotivoRevisao] = useState("")
 
   // ── Status derivado da venda (pode mudar após reload) ──────────
@@ -92,6 +101,20 @@ export function VendaRowActions({
       setLoadingDetalhes(false)
     })
   }, [viewOpen, venda.id, detalhes])
+
+  // Auto-abre o modal de visualização quando vem via ?venda=<id>
+  // (notificação clicada no header). Após abrir, limpa o param da URL.
+  useEffect(() => {
+    const alvo = searchParams.get("venda")
+    if (alvo === venda.id) {
+      setViewOpen(true)
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete("venda")
+      const qs = params.toString()
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, venda.id])
 
   // ── Handlers ────────────────────────────────────────────────────
 
@@ -138,6 +161,24 @@ export function VendaRowActions({
     })
   }
 
+  function abrirExcluir() {
+    setMotivoExcluir("")
+    setExcluirOpen(true)
+  }
+
+  function handleExcluir() {
+    startExcluir(async () => {
+      const r = await excluirVenda(venda.id, motivoExcluir)
+      if (!r.ok) {
+        toast.error(r.error ?? "Erro ao excluir venda.")
+        return
+      }
+      toast.success("Venda excluída do sistema.")
+      setExcluirOpen(false)
+      router.refresh()
+    })
+  }
+
   return (
     <>
       {/* ── Botões da linha ────────────────────────────────────── */}
@@ -154,6 +195,14 @@ export function VendaRowActions({
             label="Editar venda"
             onClick={() => setEditarOpen(true)}
             tone="bright"
+          />
+        )}
+        {podeExcluir && (
+          <IconAction
+            icon={Trash2}
+            label="Excluir venda"
+            onClick={abrirExcluir}
+            tone="rose"
           />
         )}
       </div>
@@ -307,6 +356,53 @@ export function VendaRowActions({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Dialog: confirmar exclusão ─────────────────────────── */}
+      <Dialog open={excluirOpen} onOpenChange={setExcluirOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-4 w-4 text-rose-400" />
+              Excluir venda
+            </DialogTitle>
+            <DialogDescription>
+              Você está prestes a excluir a venda{" "}
+              <strong className="font-mono text-nexus-bright">{venda.identificador}</strong>{" "}
+              de <strong className="text-white">{venda.clienteNome}</strong>. A
+              ação é <strong className="text-rose-300">irreversível</strong>:
+              produtos, passageiros e cobrança serão removidos. Um log de
+              auditoria ficará registrado.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-1">
+            <Textarea
+              placeholder="Motivo da exclusão (opcional)…"
+              value={motivoExcluir}
+              onChange={(e) => setMotivoExcluir(e.target.value)}
+              rows={3}
+              className="resize-none border-white/10 bg-white/[0.04] text-white placeholder:text-white/30 focus-visible:ring-rose-500/40"
+              disabled={isPendingExcluir}
+            />
+          </div>
+
+          <DialogFooter className="gap-2">
+            <DialogClose asChild>
+              <Button variant="ghost" disabled={isPendingExcluir}>
+                Cancelar
+              </Button>
+            </DialogClose>
+            <LoaderButton
+              onClick={handleExcluir}
+              loading={isPendingExcluir}
+              variant="destructive"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Excluir definitivamente
+            </LoaderButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
@@ -344,7 +440,7 @@ function StatusBadge({ status }: { status: string }) {
 
 // ─── Icon button (mesmo padrão de usuarios/usuario-row-actions.tsx) ───────────
 
-type Tone = "neutral" | "bright" | "amber" | "emerald"
+type Tone = "neutral" | "bright" | "amber" | "emerald" | "rose"
 
 type IconActionProps = {
   icon: LucideIcon
@@ -364,6 +460,8 @@ function IconAction({ icon: Icon, label, onClick, disabled, tone }: IconActionPr
       "border-amber-500/25 bg-amber-500/[0.08] text-amber-300 hover:border-amber-500/50 hover:bg-amber-500/15 hover:text-amber-200",
     emerald:
       "border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-300 hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:text-emerald-200",
+    rose:
+      "border-rose-500/25 bg-rose-500/[0.08] text-rose-300 hover:border-rose-500/50 hover:bg-rose-500/15 hover:text-rose-200",
   }
   return (
     <button

@@ -78,21 +78,25 @@ export default async function DashboardLayout({
                 href: "/financeiro/receber",
                 label: "Contas a Receber",
                 icon: "receber",
+                comingSoon: true,
               } as NavItem,
               {
                 href: "/financeiro/pagar",
                 label: "Contas a Pagar",
                 icon: "pagar",
+                comingSoon: true,
               } as NavItem,
               {
                 href: "/fluxo-de-caixa",
                 label: "Fluxo de Caixa",
                 icon: "caixa",
+                comingSoon: true,
               } as NavItem,
               {
                 href: "/clientes-faturados",
                 label: "Clientes Faturados",
                 icon: "faturados",
+                comingSoon: true,
               } as NavItem,
             ]
           : []),
@@ -191,10 +195,11 @@ export default async function DashboardLayout({
           </aside>
         </div>
 
-        {/* Coluna direita */}
-        <div className="flex flex-1 flex-col">
-          {/* Header */}
-          <header className="sticky top-0 z-20 flex h-16 items-center border-b border-white/[0.06] bg-background/70 px-4 backdrop-blur-md md:justify-end md:px-8">
+        {/* Coluna direita — mesmo gutter (p-3) do sidebar pra o header
+            flutuar como um card alinhado em altura/border com a marca. */}
+        <div className="flex flex-1 flex-col p-3 md:pl-0">
+          {/* Header flutuante */}
+          <header className="sticky top-3 z-20 flex h-20 shrink-0 items-center justify-between gap-4 rounded-2xl border border-white/[0.06] bg-card/60 px-4 backdrop-blur-xl md:px-6">
 
             {/* ── Mobile: hamburguer (esquerda) ────────────────── */}
             <div className="md:hidden">
@@ -219,6 +224,9 @@ export default async function DashboardLayout({
               </Link>
             </div>
 
+            {/* ── Spacer desktop (empurra controles pra direita) ── */}
+            <div className="hidden flex-1 md:block" />
+
             {/* ── Direita: notificações + usuário (sempre) ─────── */}
             <div className="flex items-center gap-2 md:gap-3">
               <NotificationsButton lembretes={lembretes ?? []} />
@@ -231,7 +239,7 @@ export default async function DashboardLayout({
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8">
+          <main className="mt-3 flex-1 overflow-y-auto rounded-2xl px-4 py-6 md:px-8 md:py-8">
             {children}
           </main>
         </div>

@@ -4,7 +4,11 @@ const nextConfig = {
   poweredByHeader: false,
   // @react-pdf/renderer usa módulos Node.js (canvas, etc.) —
   // precisa ficar fora do bundle do servidor para não quebrar.
-  serverExternalPackages: ["@react-pdf/renderer"],
+  // Next 14: vai dentro de `experimental.serverComponentsExternalPackages`.
+  // (Em Next 15 vira `serverExternalPackages` no topo — migrar quando subir versão.)
+  experimental: {
+    serverComponentsExternalPackages: ["@react-pdf/renderer"],
+  },
 }
 
 export default nextConfig

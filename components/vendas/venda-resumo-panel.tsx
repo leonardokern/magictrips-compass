@@ -287,7 +287,7 @@ export function VendaResumoPanel({ detalhes: d, mostraComissao, vendaId, mostraR
         </div>
       )}
 
-      {d.motivoRevisao && (
+      {d.motivoRevisao && d.status !== "aprovado" && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/25 bg-amber-500/[0.07] px-4 py-3 text-sm text-amber-300">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>

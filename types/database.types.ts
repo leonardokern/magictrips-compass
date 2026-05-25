@@ -1474,6 +1474,10 @@ export type Database = {
         Returns: string
       }
       criar_venda_completa: { Args: { p_payload: Json }; Returns: string }
+      excluir_venda: {
+        Args: { p_venda_id: string; p_motivo?: string | null }
+        Returns: undefined
+      }
       editar_venda_completa: {
         Args: { p_venda_id: string; p_payload: Json; p_aprovar?: boolean }
         Returns: undefined

@@ -211,7 +211,7 @@ export function ClienteOverviewModal({ id, open, onOpenChange }: Props) {
                       <span className="font-medium text-white">
                         {formatBRL(
                           data.vendas
-                            .filter((v) => v.status === "aprovada")
+                            .filter((v) => v.status === "aprovado")
                             .reduce((a, v) => a + v.receita, 0),
                         )}
                       </span>{" "}

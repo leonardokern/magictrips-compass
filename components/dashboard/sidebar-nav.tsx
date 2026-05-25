@@ -27,6 +27,8 @@ export type NavItem = {
   label: string
   icon: string
   badge?: number
+  /** Funcionalidade ainda não liberada — item aparece desabilitado/em itálico. */
+  comingSoon?: boolean
 }
 
 export type NavSection = {
@@ -72,6 +74,22 @@ export function SidebarNav({ sections }: Props) {
               item.href === "/dashboard"
                 ? pathname === item.href
                 : pathname.startsWith(item.href)
+
+            // Item de funcionalidade futura: não navega, fica em itálico
+            // com cor mais apagada e sem hover/cursor.
+            if (item.comingSoon) {
+              return (
+                <div
+                  key={item.href}
+                  aria-disabled="true"
+                  title="Em breve"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm italic text-white/25"
+                >
+                  <Icon className="h-4 w-4 shrink-0 text-white/20" />
+                  <span className="truncate">{item.label}</span>
+                </div>
+              )
+            }
 
             return (
               <Link

@@ -34,18 +34,18 @@ const MESES_PT = [
 
 const STATUS_CHIP: Record<string, string> = {
   rascunho: "border-white/15 bg-white/[0.04] text-white/65",
+  em_revisao: "border-orange-400/40 bg-orange-400/10 text-orange-300",
   pendente_validacao: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  aprovada: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-  cancelada: "border-rose-500/30 bg-rose-500/10 text-rose-300",
-  devolvida: "border-rose-500/30 bg-rose-500/10 text-rose-300",
+  aprovado: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+  cancelado: "border-rose-500/30 bg-rose-500/10 text-rose-300",
 }
 
 const STATUS_LABEL: Record<string, string> = {
   rascunho: "Rascunho",
+  em_revisao: "Em Revisão",
   pendente_validacao: "Aguardando",
-  aprovada: "Aprovada",
-  cancelada: "Cancelada",
-  devolvida: "Devolvida",
+  aprovado: "Aprovada",
+  cancelado: "Cancelada",
 }
 
 type Props = {
@@ -70,7 +70,7 @@ export async function AgenteDashboard({
   let vendasQuery = supabase
     .from("vendas")
     .select(
-      "id, cliente_id, data_venda, data_aprovacao, status, cliente:cliente_id(nome)",
+      "id, cliente_id, data_venda, data_aprovacao, status, comissao_percentual, cliente:cliente_id(nome)",
     )
     .eq("usuario_id", userId)
     .order("data_venda", { ascending: false })
@@ -89,47 +89,58 @@ export async function AgenteDashboard({
     data_venda: string
     data_aprovacao: string | null
     status: string
+    comissao_percentual: number | null
     cliente: { nome: string } | null
   }
   const vendas = (vendasRaw ?? []) as unknown as VendaRow[]
   const vendaIds = vendas.map((v) => v.id)
 
-  // ── Produtos dessas vendas (pra calcular valores + comissão) ────────────
+  // ── Produtos dessas vendas (pra calcular receita, custo, RAV) ──────────
   const { data: produtosRaw } =
     vendaIds.length === 0
       ? { data: [] }
       : await supabase
           .from("venda_produtos")
-          .select("venda_id, valor_venda, valor_custo, comissao_vendedor")
+          .select("venda_id, valor_venda, valor_custo, rav")
           .in("venda_id", vendaIds)
 
   type ProdutoRow = {
     venda_id: string
     valor_venda: number
     valor_custo: number
-    comissao_vendedor: number | null
+    rav: number | null
   }
   const produtos = (produtosRaw ?? []) as ProdutoRow[]
 
-  // Agrega por venda
+  // Agrega por venda. A comissão do agente é RAV × comissao_percentual / 100
+  // (congelada no momento da venda; nada vem do venda_produtos.comissao_vendedor,
+  // que é a comissão paga PARA a agência pelo fornecedor — conceito diferente).
   const totaisPorVenda = new Map<
     string,
-    { receita: number; custo: number; comissao: number }
+    { receita: number; custo: number; rav: number; comissao: number }
   >()
   for (const p of produtos) {
     const cur = totaisPorVenda.get(p.venda_id) ?? {
       receita: 0,
       custo: 0,
+      rav: 0,
       comissao: 0,
     }
     cur.receita += Number(p.valor_venda ?? 0)
     cur.custo += Number(p.valor_custo ?? 0)
-    cur.comissao += Number(p.comissao_vendedor ?? 0)
+    cur.rav += Number(p.rav ?? 0)
     totaisPorVenda.set(p.venda_id, cur)
+  }
+  // Aplica % de comissão (por venda) sobre o RAV agregado
+  for (const v of vendas) {
+    const t = totaisPorVenda.get(v.id)
+    if (!t) continue
+    const pct = Number(v.comissao_percentual ?? 0)
+    t.comissao = (t.rav * pct) / 100
   }
 
   // ── KPIs (só vendas aprovadas entram em comissão "recebida") ─────────────
-  const aprovadas = vendas.filter((v) => v.status === "aprovada")
+  const aprovadas = vendas.filter((v) => v.status === "aprovado")
   const totalComissao = aprovadas.reduce(
     (acc, v) => acc + (totaisPorVenda.get(v.id)?.comissao ?? 0),
     0,

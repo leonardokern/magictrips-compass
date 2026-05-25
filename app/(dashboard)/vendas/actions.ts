@@ -155,6 +155,32 @@ export async function solicitarRevisaoVenda(
   return { ok: true }
 }
 
+/**
+ * Exclui (hard delete) uma venda. Apenas Admin/Gerente. Gera audit log antes
+ * de remover e notifica o responsável (quando for outro usuário).
+ */
+export async function excluirVenda(
+  id: string,
+  motivo?: string,
+): Promise<ActionResult> {
+  const user = await requireCurrentUser()
+  if (!can(user, "vendas", "excluir")) {
+    return { ok: false, error: "Sem permissão para excluir vendas." }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("excluir_venda", {
+    p_venda_id: id,
+    p_motivo: motivo?.trim() || null,
+  })
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath("/vendas")
+  revalidatePath("/dashboard")
+  return { ok: true }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Detalhes de uma venda para o modal de visualização
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1157,7 +1183,9 @@ export async function resubmeterVenda(
   id: string,
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
-  const user = await requireCurrentUser()
+  // Defense-in-depth: garante que tem sessão válida. A RPC valida ownership
+  // server-side via auth.uid() — aqui só barramos requisições anônimas cedo.
+  await requireCurrentUser()
 
   const parsed = vendaCreateSchema.safeParse(raw)
   if (!parsed.success) {

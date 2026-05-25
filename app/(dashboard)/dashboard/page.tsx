@@ -119,7 +119,7 @@ export default async function DashboardPage({
       )
     `,
     )
-    .eq("vendas.status", "aprovada")
+    .eq("vendas.status", "aprovado")
 
   if (range) {
     q = q

@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { useMemo, useState, useTransition } from "react"
+import { Fragment, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
   AlertCircle,
@@ -572,8 +572,8 @@ export function VendaWizard(props: Props) {
         setConfirmValorAberto(true)
         return
       }
-      sincronizarPassageiros()
     }
+    sincronizarPassageiros()
     setStep(5)
     props.onMaxStepChange(5)
   }
@@ -973,6 +973,18 @@ export function VendaWizard(props: Props) {
             origem={origem}
             produtos={produtos.map((p) => {
               const tp = props.tiposProduto.find((t) => t.id === p.tipo_produto_id)
+              const camposDoTipo = tp?.campos ?? []
+              const camposExtras = camposDoTipo
+                .slice()
+                .sort((a, b) => a.ordem - b.ordem)
+                .map((tc) => {
+                  const campo = props.camposExtra.find((c) => c.id === tc.campo_id)
+                  return {
+                    nome: campo?.nome ?? "—",
+                    valor: p.valores_extras[tc.campo_id] ?? "",
+                  }
+                })
+                .filter((c) => c.valor !== "")
               return {
                 tipoNome: tp?.nome ?? "—",
                 icone: tp?.icone ?? null,
@@ -982,6 +994,13 @@ export function VendaWizard(props: Props) {
                   ? parseValorComSoma(p.comissao_vendedor_str)
                   : 0,
                 rav: p.rav_str ? parseValorComSoma(p.rav_str) : 0,
+                ravExtraCliente: p.rav_extra_cliente_str
+                  ? parseValorComSoma(p.rav_extra_cliente_str)
+                  : 0,
+                ravExtraFornecedor: p.rav_extra_fornecedor_str
+                  ? parseValorComSoma(p.rav_extra_fornecedor_str)
+                  : 0,
+                camposExtras,
               }
             })}
             cobranca={cobrancaItens.map((it) => ({
@@ -989,8 +1008,13 @@ export function VendaWizard(props: Props) {
               valor: parseValorComSoma(it.valor_total_str),
               parcelas: it.num_parcelas,
             }))}
-            passageiros={passageiros.map((p) => p.nome)}
-            mostraComissao={props.podeTrocarAgente}
+            passageiros={passageiros.map((p) => ({
+              nome: p.nome,
+              cpf: p.cpf,
+              dataNascimento: p.data_nascimento,
+              usandoDadosCliente: p.usandoDadosCliente ?? false,
+            }))}
+            mostraComissao={!props.modoGerente && props.podeTrocarAgente}
             comissaoPercentual={comissaoDoAgente}
           />
         )}
@@ -2548,6 +2572,170 @@ function Step4Passageiros(props: {
 // Step 5 — Revisão
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Tabela de produtos expansível — clique na linha para ver os campos extras. */
+function ProdutosRevisao(props: {
+  produtos: {
+    tipoNome: string
+    icone: string | null
+    valorVenda: number
+    valorCusto: number
+    comissao: number
+    rav: number
+    ravExtraCliente: number
+    ravExtraFornecedor: number
+    camposExtras: { nome: string; valor: string }[]
+  }[]
+  totalVenda: number
+  totalCusto: number
+  totalRav: number
+  totalComissao: number
+  mostraComissao: boolean
+}) {
+  // Por padrão todos os acordeões ficam fechados — o operador abre se quiser
+  // ver os campos personalizados. Otimiza o espaço da tela na revisão.
+  const [abertos, setAbertos] = useState<Record<number, boolean>>({})
+
+  function toggle(i: number) {
+    setAbertos((prev) => ({ ...prev, [i]: !prev[i] }))
+  }
+
+  const colCount = 5 + (props.mostraComissao ? 1 : 0)
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-white/[0.06]">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-white/[0.06] text-[10px] uppercase tracking-wider text-white/45">
+            <th className="w-8 px-2 py-2"></th>
+            <th className="px-3 py-2 text-left">Tipo</th>
+            <th className="px-3 py-2 text-right">Venda</th>
+            <th className="px-3 py-2 text-right">Custo</th>
+            <th className="px-3 py-2 text-right">RAV</th>
+            {props.mostraComissao && (
+              <th className="px-3 py-2 text-right">Comissão</th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {props.produtos.map((p, i) => {
+            const aberto = abertos[i] ?? false
+            const temRavExtras =
+              p.ravExtraCliente > 0 || p.ravExtraFornecedor > 0
+            const temDetalhes = p.camposExtras.length > 0 || temRavExtras
+            return (
+              <Fragment key={i}>
+                <tr
+                  className={
+                    "border-b border-white/[0.04] last:border-0 " +
+                    (temDetalhes ? "cursor-pointer hover:bg-white/[0.025]" : "")
+                  }
+                  onClick={temDetalhes ? () => toggle(i) : undefined}
+                >
+                  <td className="px-2 py-2 text-white/40">
+                    {temDetalhes ? (
+                      <ChevronDown
+                        className={
+                          "h-3.5 w-3.5 transition-transform " +
+                          (aberto ? "rotate-0" : "-rotate-90")
+                        }
+                      />
+                    ) : null}
+                  </td>
+                  <td className="px-3 py-2 text-white/85">
+                    <span className="flex items-center gap-1.5">
+                      {p.icone && (
+                        <span className="relative block h-3.5 w-3.5 shrink-0">
+                          <Image
+                            src={`/icons/tipos-produto/${p.icone}.png`}
+                            alt={p.tipoNome}
+                            fill
+                            className="object-contain"
+                            style={{ filter: "brightness(0) invert(1)", opacity: 0.5 }}
+                          />
+                        </span>
+                      )}
+                      {p.tipoNome}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-white/85">
+                    {formatBRL(p.valorVenda)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-white/55">
+                    {formatBRL(p.valorCusto)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-white/70">
+                    {formatBRL(p.rav)}
+                  </td>
+                  {props.mostraComissao && (
+                    <td className="px-3 py-2 text-right tabular-nums text-amber-300/80">
+                      {formatBRL(p.comissao)}
+                    </td>
+                  )}
+                </tr>
+                {temDetalhes && aberto && (
+                  <tr className="border-b border-white/[0.04] bg-white/[0.015]">
+                    <td colSpan={colCount} className="px-3 py-2.5">
+                      <div className="grid grid-cols-1 gap-x-6 gap-y-1.5 pl-6 sm:grid-cols-2">
+                        {p.camposExtras.map((c, j) => (
+                          <div
+                            key={j}
+                            className="flex items-baseline gap-2 text-[12px]"
+                          >
+                            <span className="text-white/40">{c.nome}:</span>
+                            <span className="text-white/85">{c.valor}</span>
+                          </div>
+                        ))}
+                        {p.ravExtraCliente > 0 && (
+                          <div className="flex items-baseline gap-2 text-[12px]">
+                            <span className="text-white/40">
+                              RAV extra cliente:
+                            </span>
+                            <span className="tabular-nums text-nexus-bright">
+                              {formatBRL(p.ravExtraCliente)}
+                            </span>
+                          </div>
+                        )}
+                        {p.ravExtraFornecedor > 0 && (
+                          <div className="flex items-baseline gap-2 text-[12px]">
+                            <span className="text-white/40">
+                              RAV extra fornecedor:
+                            </span>
+                            <span className="tabular-nums text-nexus-bright">
+                              {formatBRL(p.ravExtraFornecedor)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            )
+          })}
+          <tr className="bg-white/[0.03] font-medium">
+            <td className="px-2 py-2"></td>
+            <td className="px-3 py-2 text-white/55">Total</td>
+            <td className="px-3 py-2 text-right tabular-nums text-white">
+              {formatBRL(props.totalVenda)}
+            </td>
+            <td className="px-3 py-2 text-right tabular-nums text-white/65">
+              {formatBRL(props.totalCusto)}
+            </td>
+            <td className="px-3 py-2 text-right tabular-nums text-white/85">
+              {formatBRL(props.totalRav)}
+            </td>
+            {props.mostraComissao && (
+              <td className="px-3 py-2 text-right tabular-nums text-amber-300">
+                {formatBRL(props.totalComissao)}
+              </td>
+            )}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function Step5Revisao(props: {
   empresaNome: string
   dataVenda: string
@@ -2565,9 +2753,17 @@ function Step5Revisao(props: {
     valorCusto: number
     comissao: number
     rav: number
+    ravExtraCliente: number
+    ravExtraFornecedor: number
+    camposExtras: { nome: string; valor: string }[]
   }[]
   cobranca: { tipo: string; valor: number; parcelas: number }[]
-  passageiros: string[]
+  passageiros: {
+    nome: string
+    cpf: string
+    dataNascimento: string
+    usandoDadosCliente: boolean
+  }[]
   /** Quando true (Admin/Gerente), exibe coluna/linha de comissão na revisão.
    *  Agentes não veem — comissão é calculada por regra administrativa no aprovo. */
   mostraComissao: boolean
@@ -2622,79 +2818,14 @@ function Step5Revisao(props: {
         </Bloco>
 
         <Bloco titulo={`Produtos (${props.produtos.length})`}>
-          <div className="overflow-hidden rounded-lg border border-white/[0.06]">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/[0.06] text-[10px] uppercase tracking-wider text-white/45">
-                  <th className="px-3 py-2 text-left">Tipo</th>
-                  <th className="px-3 py-2 text-right">Venda</th>
-                  <th className="px-3 py-2 text-right">Custo</th>
-                  <th className="px-3 py-2 text-right">RAV</th>
-                  {props.mostraComissao && (
-                    <th className="px-3 py-2 text-right">Comissão</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {props.produtos.map((p, i) => (
-                  <tr
-                    key={i}
-                    className="border-b border-white/[0.04] last:border-0"
-                  >
-                    <td className="px-3 py-2 text-white/85">
-                      <span className="flex items-center gap-1.5">
-                        {p.icone && (
-                          <span className="relative block h-3.5 w-3.5 shrink-0">
-                            <Image
-                              src={`/icons/tipos-produto/${p.icone}.png`}
-                              alt={p.tipoNome}
-                              fill
-                              className="object-contain"
-                              style={{ filter: "brightness(0) invert(1)", opacity: 0.5 }}
-                            />
-                          </span>
-                        )}
-                        {p.tipoNome}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-white/85">
-                      {formatBRL(p.valorVenda)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-white/55">
-                      {formatBRL(p.valorCusto)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-white/70">
-                      {formatBRL(p.rav)}
-                    </td>
-                    {props.mostraComissao && (
-                      <td className="px-3 py-2 text-right tabular-nums text-amber-300/80">
-                        {formatBRL(p.comissao)}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-                <tr className="bg-white/[0.03] font-medium">
-                  <td className="px-3 py-2 text-white/55">
-                    Total
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-white">
-                    {formatBRL(totalVenda)}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-white/65">
-                    {formatBRL(totalCusto)}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-white/85">
-                    {formatBRL(totalRav)}
-                  </td>
-                  {props.mostraComissao && (
-                    <td className="px-3 py-2 text-right tabular-nums text-amber-300">
-                      {formatBRL(totalComissao)}
-                    </td>
-                  )}
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <ProdutosRevisao
+            produtos={props.produtos}
+            totalVenda={totalVenda}
+            totalCusto={totalCusto}
+            totalRav={totalRav}
+            totalComissao={totalComissao}
+            mostraComissao={props.mostraComissao}
+          />
         </Bloco>
 
         <Bloco titulo="Cobrança do cliente">
@@ -2724,13 +2855,37 @@ function Step5Revisao(props: {
         </Bloco>
 
         <Bloco titulo={`Passageiros (${props.passageiros.length})`}>
-          <ul className="flex flex-wrap gap-2 text-sm">
-            {props.passageiros.map((nome, i) => (
+          <ul className="space-y-2">
+            {props.passageiros.map((p, i) => (
               <li
                 key={i}
-                className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-white/80"
+                className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5"
               >
-                {nome}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[10px] font-medium text-white/60">
+                      {i + 1}
+                    </span>
+                    <span className="text-sm font-medium text-white/90">
+                      {p.nome || "—"}
+                    </span>
+                    {p.usandoDadosCliente && (
+                      <span className="rounded-full border border-nexus-bright/30 bg-nexus-bright/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-nexus-bright">
+                        cliente
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-0.5 pl-8 text-[12px] text-white/55">
+                  <span>
+                    <span className="text-white/35">CPF:</span>{" "}
+                    {p.cpf || "—"}
+                  </span>
+                  <span>
+                    <span className="text-white/35">Nascimento:</span>{" "}
+                    {p.dataNascimento ? formatDateBR(p.dataNascimento) : "—"}
+                  </span>
+                </div>
               </li>
             ))}
           </ul>
