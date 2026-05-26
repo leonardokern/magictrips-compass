@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
-import { ShoppingCart, ShieldCheck, Users } from "lucide-react"
+import Link from "next/link"
+import { AlertTriangle, CheckCircle2, ShieldCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   Table,
@@ -15,8 +16,12 @@ import { can } from "@/lib/hooks/use-permissions"
 import { formatBRL } from "@/lib/utils/sum-parser"
 import { NovaVendaButton } from "@/components/vendas/nova-venda-button"
 import { VendaRowActions } from "@/components/vendas/venda-row-actions"
+import { VendasSearchInput } from "@/components/vendas/vendas-search-input"
 
 export const metadata: Metadata = { title: "Vendas" }
+
+/** Tamanho da página da lista de "Validadas". Pendentes não pagina (volume baixo). */
+const PAGE_SIZE = 20
 
 const STATUS_LABEL: Record<string, string> = {
   rascunho: "Rascunho",
@@ -34,9 +39,24 @@ const STATUS_CHIP: Record<string, string> = {
   cancelado: "border-rose-500/30 bg-rose-500/10 text-rose-300",
 }
 
-const STATUS_PENDENTES = new Set(["pendente_validacao", "em_revisao"])
+const STATUS_PENDENTES = ["pendente_validacao", "em_revisao"] as const
 
-export default async function VendasPage() {
+const SELECT_LISTA = `
+  id, identificador, data_venda, status, pax, created_at, usuario_id,
+  comissao_percentual,
+  empresa:empresas(nome, slug),
+  cliente:clientes(nome),
+  agente:usuarios!vendas_usuario_id_fkey(nome),
+  produtos:venda_produtos(valor_venda, rav, rav_extra_fornecedor)
+` as const
+
+type SearchParams = { page?: string; q?: string }
+
+export default async function VendasPage({
+  searchParams,
+}: {
+  searchParams?: SearchParams
+}) {
   const user = await requireCurrentUser()
   if (!can(user, "vendas", "ler")) {
     return (
@@ -46,22 +66,67 @@ export default async function VendasPage() {
     )
   }
 
+  // Paginação só da seção "Validadas" — pendentes têm volume baixo
+  const pageParam = parseInt(searchParams?.page ?? "1", 10)
+  const pageAtual = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1
+  const fromAprovadas = (pageAtual - 1) * PAGE_SIZE
+  const toAprovadas = fromAprovadas + PAGE_SIZE - 1
+
+  // ── Termo de busca (ID da venda ou nome do cliente) ────────────────────
+  const qRaw = (searchParams?.q ?? "").trim().slice(0, 100)
+  const hasSearch = qRaw.length > 0
+  // Escapa wildcards do ILIKE (% e _) pra que vire match literal
+  const qEscaped = qRaw.replace(/[%_]/g, "\\$&")
+
   const supabase = await createClient()
 
-  const { data: vendas } = await supabase
-    .from("vendas")
-    .select(
-      `
-      id, identificador, data_venda, status, pax, created_at, usuario_id,
-      comissao_percentual,
-      empresa:empresas(nome, slug),
-      cliente:clientes(nome),
-      agente:usuarios!vendas_usuario_id_fkey(nome),
-      produtos:venda_produtos(valor_venda, rav, rav_extra_fornecedor)
-    `,
-    )
-    .order("created_at", { ascending: false })
-    .limit(200)
+  // Quando há termo de busca, primeiro descobrimos os IDs de clientes
+  // que dão match no nome (uma query) — depois filtramos vendas por
+  // identificador ILIKE OU cliente_id IN (...).
+  let clienteIds: string[] = []
+  if (hasSearch) {
+    const { data } = await supabase
+      .from("clientes")
+      .select("id")
+      .ilike("nome", `%${qEscaped}%`)
+      .limit(500)
+    clienteIds = (data ?? []).map((c) => c.id)
+  }
+
+  /** Aplica o filtro de busca em qualquer query de vendas — só se houver termo. */
+  type Querify = {
+    or: (s: string) => Querify
+  }
+  function aplicarBusca<Q extends Querify>(query: Q): Q {
+    if (!hasSearch) return query
+    const partes = [`identificador.ilike.%${qEscaped}%`]
+    if (clienteIds.length > 0) {
+      partes.push(`cliente_id.in.(${clienteIds.join(",")})`)
+    }
+    return query.or(partes.join(",")) as Q
+  }
+
+  // 2 queries em paralelo (busca aplicada quando q presente):
+  //  1. Pendentes — sem paginação (volume baixo)
+  //  2. Aprovadas paginadas — janela atual + count total
+  const [pendentesRes, aprovadasRes] = await Promise.all([
+    aplicarBusca(
+      supabase
+        .from("vendas")
+        .select(SELECT_LISTA)
+        .in("status", STATUS_PENDENTES as unknown as string[])
+        .order("created_at", { ascending: false })
+        .limit(200),
+    ),
+    aplicarBusca(
+      supabase
+        .from("vendas")
+        .select(SELECT_LISTA, { count: "exact" })
+        .eq("status", "aprovado")
+        .order("data_aprovacao", { ascending: false, nullsFirst: false })
+        .range(fromAprovadas, toAprovadas),
+    ),
+  ])
 
   const podeAprovar = can(user, "vendas", "aprovar")
   // "Editar global" = capacidade de editar QUALQUER venda da empresa (Admin/Gerente).
@@ -73,35 +138,31 @@ export default async function VendasPage() {
   const podeExcluir = can(user, "vendas", "excluir")
   const mostraComissao = podeAprovar
 
-  const linhas = (vendas ?? []).map((v) => {
+  function calcular<T extends { produtos: unknown; comissao_percentual?: number | null }>(v: T) {
     type ProdRow = { valor_venda: number; rav: number | null; rav_extra_fornecedor: number | null }
     const prods = (v.produtos as ProdRow[] | null) ?? []
     const total = prods.reduce((a, p) => a + Number(p.valor_venda ?? 0), 0)
-    // RAV total = RAV base + RAV extra fornecedor (mesmo conceito do dashboard/painel)
     const ravTotal = prods.reduce(
       (a, p) => a + Number(p.rav ?? 0) + Number(p.rav_extra_fornecedor ?? 0),
       0,
     )
     const pctComissao = Number(v.comissao_percentual ?? 0)
     const comissao = (ravTotal * pctComissao) / 100
-    return { ...v, total, ravTotal, comissao }
-  })
+    return { total, ravTotal, comissao }
+  }
 
-  // ── Particiona em duas listas ─────────────────────────────────────────────
-  const pendentes = linhas.filter((v) => STATUS_PENDENTES.has(v.status))
-  const aprovadas = linhas.filter((v) => v.status === "aprovado")
-
-  // KPIs
-  const totalMes = aprovadas
-    .filter((v) => {
-      const d = new Date(v.data_venda)
-      const hoje = new Date()
-      return (
-        d.getMonth() === hoje.getMonth() &&
-        d.getFullYear() === hoje.getFullYear()
-      )
-    })
-    .reduce((acc, v) => acc + v.total, 0)
+  const pendentesTodos = (pendentesRes.data ?? []).map((v) => ({ ...v, ...calcular(v) }))
+  // Pro agente: separar `em_revisao` (precisa de ação) de `pendente_validacao` (esperando).
+  // Pro Admin/Gerente: tudo junto na mesma seção (ação deles é a mesma — aprovar/revisar).
+  const emRevisao = !podeAprovar
+    ? pendentesTodos.filter((v) => v.status === "em_revisao")
+    : []
+  const pendentes = !podeAprovar
+    ? pendentesTodos.filter((v) => v.status === "pendente_validacao")
+    : pendentesTodos
+  const aprovadas = (aprovadasRes.data ?? []).map((v) => ({ ...v, ...calcular(v) }))
+  const totalAprovadas = aprovadasRes.count ?? 0
+  const totalPaginas = Math.max(1, Math.ceil(totalAprovadas / PAGE_SIZE))
 
   return (
     <div className="space-y-6">
@@ -120,40 +181,56 @@ export default async function VendasPage() {
         {can(user, "vendas", "criar") && <NovaVendaButton />}
       </div>
 
-      {/* KPIs */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Kpi
-          label={podeAprovar ? "Aguardando aprovação" : "Suas pendências"}
-          value={pendentes.length}
-          icon={<ShieldCheck className="h-4 w-4 text-amber-300" />}
-          accent="amber"
-        />
-        <Kpi
-          label="Aprovadas (últimas)"
-          value={aprovadas.length}
-          icon={<ShoppingCart className="h-4 w-4 text-emerald-300" />}
-          accent="emerald"
-        />
-        <Kpi
-          label="Total mês corrente"
-          value={formatBRL(totalMes)}
-          icon={<Users className="h-4 w-4 text-nexus-bright" />}
-          accent="bright"
-        />
+      {/* Busca */}
+      <div className="flex items-center justify-between gap-3">
+        <VendasSearchInput />
+        {hasSearch && (
+          <span className="text-xs text-white/45">
+            Buscando por <strong className="text-white/80">&ldquo;{qRaw}&rdquo;</strong>
+          </span>
+        )}
       </div>
+
+      {/* ── Seção 0 (só agente): Em revisão — ação requerida ────────────── */}
+      {!podeAprovar && emRevisao.length > 0 && (
+        <VendasSection
+          titulo="Precisa de revisão"
+          descricao="O gerente devolveu estas vendas com observações. Corrija o que foi apontado e envie de novo para validação."
+          emptyMsg=""
+          linhas={emRevisao}
+          userId={user.id}
+          podeAprovar={podeAprovar}
+          acento="orange"
+          icone={AlertTriangle}
+          contador={emRevisao.length}
+          podeEditarGlobal={podeEditarGlobal}
+          podeEditarBasico={podeEditarBasico}
+          podeExcluir={podeExcluir}
+          mostraComissao={mostraComissao}
+        />
+      )}
 
       {/* ── Seção 1: Aguardando validação ─────────────────────────────────── */}
       <VendasSection
-        titulo="Aguardando validação"
+        titulo={podeAprovar ? "Aguardando validação" : "Aguardando aprovação"}
         descricao={
           podeAprovar
             ? "Vendas submetidas por agentes que ainda precisam de aprovação."
-            : "Suas vendas em fluxo de aprovação ou aguardando correção."
+            : "Vendas que você enviou e estão na fila do gerente. Sem ação necessária da sua parte."
         }
-        emptyMsg="Nenhuma venda aguardando validação."
+        emptyMsg={
+          hasSearch
+            ? `Nenhum resultado para "${qRaw}".`
+            : podeAprovar
+              ? "Nenhuma venda aguardando validação."
+              : "Nenhuma venda na fila."
+        }
         linhas={pendentes}
         userId={user.id}
         podeAprovar={podeAprovar}
+        acento="amber"
+        icone={ShieldCheck}
+        contador={pendentes.length}
         podeEditarGlobal={podeEditarGlobal}
         podeEditarBasico={podeEditarBasico}
         podeExcluir={podeExcluir}
@@ -168,7 +245,11 @@ export default async function VendasPage() {
             ? "Vendas aprovadas. Admin/Gerente podem excluir do sistema com auditoria."
             : "Suas vendas já aprovadas — visualização apenas."
         }
-        emptyMsg="Nenhuma venda validada ainda."
+        emptyMsg={
+          hasSearch
+            ? `Nenhum resultado para "${qRaw}".`
+            : "Nenhuma venda validada ainda."
+        }
         linhas={aprovadas}
         userId={user.id}
         podeAprovar={podeAprovar}
@@ -176,6 +257,15 @@ export default async function VendasPage() {
         podeEditarBasico={podeEditarBasico}
         podeExcluir={podeExcluir}
         mostraComissao={mostraComissao}
+        acento="emerald"
+        icone={CheckCircle2}
+        contador={totalAprovadas}
+        paginacao={{
+          pageAtual,
+          totalPaginas,
+          totalItens: totalAprovadas,
+          pageSize: PAGE_SIZE,
+        }}
       />
     </div>
   )
@@ -198,6 +288,32 @@ type Linha = {
   comissao: number
 }
 
+type Acento = "amber" | "emerald" | "orange"
+
+const ACENTO_CONFIG: Record<
+  Acento,
+  { icone: string; texto: string; chip: string; ring: string }
+> = {
+  amber: {
+    icone: "bg-amber-500/15 text-amber-300",
+    texto: "text-amber-200",
+    chip: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+    ring: "ring-amber-500/25",
+  },
+  emerald: {
+    icone: "bg-emerald-500/15 text-emerald-300",
+    texto: "text-emerald-200",
+    chip: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+    ring: "ring-emerald-500/25",
+  },
+  orange: {
+    icone: "bg-orange-500/15 text-orange-300",
+    texto: "text-orange-200",
+    chip: "border-orange-500/40 bg-orange-500/15 text-orange-200",
+    ring: "ring-orange-500/30",
+  },
+}
+
 function VendasSection({
   titulo,
   descricao,
@@ -209,6 +325,10 @@ function VendasSection({
   podeEditarBasico,
   podeExcluir,
   mostraComissao,
+  acento,
+  icone: Icone,
+  contador,
+  paginacao,
 }: {
   titulo: string
   descricao: string
@@ -220,12 +340,45 @@ function VendasSection({
   podeEditarBasico: boolean
   podeExcluir: boolean
   mostraComissao: boolean
+  acento: Acento
+  icone: React.ComponentType<{ className?: string }>
+  contador: number
+  paginacao?: {
+    pageAtual: number
+    totalPaginas: number
+    totalItens: number
+    pageSize: number
+  }
 }) {
+  const cfg = ACENTO_CONFIG[acento]
   return (
     <section className="space-y-3">
-      <div>
-        <h3 className="text-base font-semibold text-white">{titulo}</h3>
-        <p className="mt-0.5 text-xs text-white/45">{descricao}</p>
+      <div className="flex items-start gap-3">
+        <span
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1",
+            cfg.icone,
+            cfg.ring,
+          )}
+        >
+          <Icone className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className={cn("text-base font-semibold", cfg.texto)}>
+              {titulo}
+            </h3>
+            <span
+              className={cn(
+                "inline-flex h-5 min-w-5 items-center justify-center rounded-full border px-1.5 text-[10px] font-semibold tabular-nums",
+                cfg.chip,
+              )}
+            >
+              {contador > 99 ? "99+" : contador}
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-white/45">{descricao}</p>
+        </div>
       </div>
 
       {/* Desktop: tabela */}
@@ -408,7 +561,103 @@ function VendasSection({
           })
         )}
       </div>
+
+      {/* Paginação (apenas quando a seção for paginada) */}
+      {paginacao && paginacao.totalPaginas > 1 && (
+        <PaginacaoControl
+          pageAtual={paginacao.pageAtual}
+          totalPaginas={paginacao.totalPaginas}
+          totalItens={paginacao.totalItens}
+          pageSize={paginacao.pageSize}
+        />
+      )}
     </section>
+  )
+}
+
+/** Controles de paginação RSC-friendly — links com `?page=N` (sem JS).
+ *  Mostra "1 de 5 · 100 vendas" + setas prev/next e botões de páginas
+ *  vizinhas (até 5 visíveis). Página inicial = não mostra setinha pra trás;
+ *  última página = não mostra pra frente. */
+function PaginacaoControl({
+  pageAtual,
+  totalPaginas,
+  totalItens,
+  pageSize,
+}: {
+  pageAtual: number
+  totalPaginas: number
+  totalItens: number
+  pageSize: number
+}) {
+  const inicio = (pageAtual - 1) * pageSize + 1
+  const fim = Math.min(pageAtual * pageSize, totalItens)
+
+  // Janela de até 5 páginas centralizada em pageAtual
+  const janela: number[] = []
+  const ini = Math.max(1, pageAtual - 2)
+  const finJ = Math.min(totalPaginas, ini + 4)
+  for (let p = ini; p <= finJ; p++) janela.push(p)
+
+  function href(p: number): string {
+    const qs = new URLSearchParams()
+    if (p > 1) qs.set("page", String(p))
+    const s = qs.toString()
+    return s ? `?${s}` : "?"
+  }
+
+  return (
+    <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-xs text-white/45">
+        Exibindo {inicio}–{fim} de {totalItens} vendas
+      </p>
+      <nav className="flex items-center gap-1.5" aria-label="Paginação">
+        <Link
+          href={href(pageAtual - 1)}
+          aria-label="Página anterior"
+          aria-disabled={pageAtual <= 1}
+          className={cn(
+            "inline-flex h-8 w-8 items-center justify-center rounded-md border text-sm transition-colors",
+            pageAtual <= 1
+              ? "pointer-events-none border-white/[0.04] text-white/20"
+              : "border-white/10 text-white/70 hover:border-white/25 hover:bg-white/[0.06] hover:text-white",
+          )}
+        >
+          ‹
+        </Link>
+        {janela.map((p) => {
+          const ativo = p === pageAtual
+          return (
+            <Link
+              key={p}
+              href={href(p)}
+              aria-current={ativo ? "page" : undefined}
+              className={cn(
+                "inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-xs font-medium transition-colors tabular-nums",
+                ativo
+                  ? "border-nexus-bright/50 bg-nexus-bright/15 text-white"
+                  : "border-white/10 text-white/65 hover:border-white/25 hover:bg-white/[0.06] hover:text-white",
+              )}
+            >
+              {p}
+            </Link>
+          )
+        })}
+        <Link
+          href={href(pageAtual + 1)}
+          aria-label="Próxima página"
+          aria-disabled={pageAtual >= totalPaginas}
+          className={cn(
+            "inline-flex h-8 w-8 items-center justify-center rounded-md border text-sm transition-colors",
+            pageAtual >= totalPaginas
+              ? "pointer-events-none border-white/[0.04] text-white/20"
+              : "border-white/10 text-white/70 hover:border-white/25 hover:bg-white/[0.06] hover:text-white",
+          )}
+        >
+          ›
+        </Link>
+      </nav>
+    </div>
   )
 }
 
@@ -452,38 +701,15 @@ function computeRowProps(
   }
 }
 
-function Kpi({
-  label,
-  value,
-  icon,
-  accent,
-}: {
-  label: string
-  value: string | number
-  icon: React.ReactNode
-  accent: "amber" | "emerald" | "bright"
-}) {
-  const accentColor =
-    accent === "amber"
-      ? "text-amber-300"
-      : accent === "emerald"
-        ? "text-emerald-300"
-        : "text-nexus-bright"
-  return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
-      <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/45">
-        {icon}
-        {label}
-      </div>
-      <p className={`mt-1 text-2xl font-semibold tabular-nums ${accentColor}`}>
-        {value}
-      </p>
-    </div>
-  )
-}
-
 function formatDateBR(iso: string): string {
   if (!iso) return "—"
   const [y, m, d] = iso.split("-")
   return `${d}/${m}/${y}`
+}
+
+function isoDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
 }

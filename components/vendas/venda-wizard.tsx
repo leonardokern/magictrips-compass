@@ -136,6 +136,16 @@ type Props = {
   modoGerente?: boolean
   /** ID da venda sendo editada (obrigatório em modoGerente). */
   vendaId?: string
+  /** Callback opcional disparado quando muda a validade de cada step.
+   *  Usado pelo `EditarVendaModal` pra estilizar os tabs (✓ válido / ⚠ inválido). */
+  onStepsStatusChange?: (status: StepsStatus) => void
+}
+
+export type StepsStatus = {
+  1: "valid" | "invalid"
+  2: "valid" | "invalid"
+  3: "valid" | "invalid"
+  4: "valid" | "invalid"
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -805,6 +815,27 @@ export function VendaWizard(props: Props) {
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autosaveAtivo])
+
+  // Reporta validade dos steps 1-4 pro modal (usado pra estilizar tabs).
+  // Recalcula a cada mudança de estado relevante.
+  useEffect(() => {
+    if (!props.onStepsStatusChange) return
+    const e1 = { ...validarStep1(), ...asyncErrors }
+    const e2 = validarStep2()
+    const e3 = validarStep3()
+    const e4 = validarStep4()
+    props.onStepsStatusChange({
+      1: Object.keys(e1).length === 0 ? "valid" : "invalid",
+      2: Object.keys(e2).length === 0 ? "valid" : "invalid",
+      3: Object.keys(e3).length === 0 ? "valid" : "invalid",
+      4: Object.keys(e4).length === 0 ? "valid" : "invalid",
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    empresaId, dataVenda, dataInicioViagem, dataFimViagem,
+    clienteValue, clienteNovo, pax, origem, agenteId,
+    produtos, cobrancaItens, passageiros, asyncErrors,
+  ])
 
   // ── Submit final ──────────────────────────────────────────────────────────
 

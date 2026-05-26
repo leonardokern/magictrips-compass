@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import { Check } from "lucide-react"
+import { AlertTriangle, Check } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ModalLoader } from "@/components/ui/modal-loader"
-import { VendaWizard, STEPS, type WizardDraftData } from "./venda-wizard"
+import { VendaWizard, STEPS, type StepsStatus, type WizardDraftData } from "./venda-wizard"
 import { getVendaParaEditar, type DadosNovaVenda } from "@/app/(dashboard)/vendas/actions"
 
 type Props = {
@@ -28,6 +28,11 @@ export function EditarVendaModal({ vendaId, open, onOpenChange, modoGerente = tr
   const [loading, setLoading] = useState(false)
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4 | 5>(1)
   const [maxWizardStep, setMaxWizardStep] = useState<1 | 2 | 3 | 4 | 5>(5)
+  // Validade dos 4 primeiros steps — recebido do wizard via callback.
+  // Em modoGerente, define quais tabs aparecem ✓ válido (verde) ou ⚠ inválido (âmbar).
+  const [stepsStatus, setStepsStatus] = useState<StepsStatus>({
+    1: "valid", 2: "valid", 3: "valid", 4: "valid",
+  })
 
   useEffect(() => {
     if (!open) {
@@ -74,18 +79,41 @@ export function EditarVendaModal({ vendaId, open, onOpenChange, modoGerente = tr
                 const passado = wizardStep > s.num
                 // Em modoGerente, todos os steps 1-4 são navegáveis pelo header
                 const clicavel = modoGerente ? (s.num <= 4 && !ativo) : passado
+
+                // Em modoGerente, considera o step "concluído" por padrão (a venda
+                // já foi cadastrada). Marca inválido apenas se faltar campo obrigatório.
+                const valido =
+                  modoGerente && s.num <= 4
+                    ? stepsStatus[s.num as 1 | 2 | 3 | 4] === "valid"
+                    : false
+                const invalido =
+                  modoGerente && s.num <= 4
+                    ? stepsStatus[s.num as 1 | 2 | 3 | 4] === "invalid"
+                    : false
+
                 const base =
                   "flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-xs uppercase tracking-wider transition-colors"
                 const color = ativo
                   ? "bg-nexus-bright/15 text-nexus-bright"
-                  : passado
-                    ? "text-emerald-300/80 hover:bg-emerald-400/10 hover:text-emerald-300 cursor-pointer"
-                    : clicavel
-                      ? "text-white/50 hover:bg-white/[0.06] hover:text-white cursor-pointer"
-                      : "text-white/25 cursor-default"
+                  : invalido
+                    ? "text-amber-300 hover:bg-amber-400/10 hover:text-amber-200 cursor-pointer"
+                    : valido
+                      ? "text-emerald-300/80 hover:bg-emerald-400/10 hover:text-emerald-300 cursor-pointer"
+                      : passado
+                        ? "text-emerald-300/80 hover:bg-emerald-400/10 hover:text-emerald-300 cursor-pointer"
+                        : clicavel
+                          ? "text-white/50 hover:bg-white/[0.06] hover:text-white cursor-pointer"
+                          : "text-white/25 cursor-default"
+
+                // Ícone: prioriza warning > check > ícone do step
+                const showWarning = invalido && !ativo
+                const showCheck = (valido || passado) && !ativo && !invalido
+
                 const inner = (
                   <>
-                    {passado ? (
+                    {showWarning ? (
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                    ) : showCheck ? (
                       <Check className="h-3.5 w-3.5 shrink-0" />
                     ) : (
                       <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -141,6 +169,7 @@ export function EditarVendaModal({ vendaId, open, onOpenChange, modoGerente = tr
               onStepChange={setWizardStep}
               maxStep={maxWizardStep}
               onMaxStepChange={setMaxWizardStep}
+              onStepsStatusChange={setStepsStatus}
             />
           )}
         </div>
