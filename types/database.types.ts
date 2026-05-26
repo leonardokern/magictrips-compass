@@ -134,18 +134,24 @@ export type Database = {
         Row: {
           chave: string
           ativo: boolean
+          ativo_dev: boolean
+          ativo_prod: boolean
           descricao: string | null
           updated_at: string
         }
         Insert: {
           chave: string
           ativo?: boolean
+          ativo_dev?: boolean
+          ativo_prod?: boolean
           descricao?: string | null
           updated_at?: string
         }
         Update: {
           chave?: string
           ativo?: boolean
+          ativo_dev?: boolean
+          ativo_prod?: boolean
           descricao?: string | null
           updated_at?: string
         }
