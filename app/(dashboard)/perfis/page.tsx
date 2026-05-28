@@ -10,6 +10,7 @@ import {
 import { createClient } from "@/lib/supabase/server"
 import { requireCurrentUser } from "@/lib/hooks/use-current-user"
 import { can } from "@/lib/hooks/use-permissions"
+import { isFeatureEnabled } from "@/lib/feature-flags"
 import { PerfilAtivoBadge } from "@/components/perfis/perfil-badges"
 import { NovoPerfilButton } from "@/components/perfis/novo-perfil-button"
 import { PerfilRowActions } from "@/components/perfis/perfil-row-actions"
@@ -30,6 +31,7 @@ export default async function PerfisPage() {
   }
 
   const supabase = await createClient()
+  const agendaEnabled = await isFeatureEnabled("agenda")
 
   const [{ data: perfis }, { data: empresas }] = await Promise.all([
     supabase
@@ -99,7 +101,7 @@ export default async function PerfisPage() {
         </div>
 
         {can(user, "perfis", "criar") && (
-          <NovoPerfilButton empresas={empresas ?? []} />
+          <NovoPerfilButton empresas={empresas ?? []} agendaEnabled={agendaEnabled} />
         )}
       </div>
 
@@ -169,6 +171,7 @@ export default async function PerfisPage() {
                         empresas={empresas ?? []}
                         usuariosCount={usuariosCount}
                         podeEditar={podeEditar}
+                        agendaEnabled={agendaEnabled}
                       />
                     </TableCell>
                   </TableRow>

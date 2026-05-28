@@ -368,8 +368,14 @@ function ProdutoCard({
   cor: string
 }) {
   const fields: { label: string; value: string }[] = []
+  if (produto.fornecedorNome)
+    fields.push({ label: "Fornecedor", value: produto.fornecedorNome })
   if (produto.dataEmissao)
     fields.push({ label: "Emissão", value: formatDate(produto.dataEmissao) })
+  if (produto.dataInicio)
+    fields.push({ label: "Início viagem", value: formatDate(produto.dataInicio) })
+  if (produto.dataFim)
+    fields.push({ label: "Fim viagem", value: formatDate(produto.dataFim) })
   if (produto.destino) fields.push({ label: "Destino", value: produto.destino })
   // Campos customizados do tipo de produto (preenchidos na venda)
   for (const ce of produto.camposExtras) {
@@ -451,16 +457,6 @@ export function ComprovantePDF({ venda: v, logoPath }: { venda: VendaParaPDF; lo
               <Text style={styles.infoLabel}>Data da venda</Text>
               <Text style={styles.infoValue}>{formatDate(v.dataVenda)}</Text>
             </View>
-            {(v.dataInicioViagem || v.dataFimViagem) && (
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Período da viagem</Text>
-                <Text style={styles.infoValue}>
-                  {v.dataFimViagem
-                    ? `${formatDate(v.dataInicioViagem)} – ${formatDate(v.dataFimViagem)}`
-                    : formatDate(v.dataInicioViagem)}
-                </Text>
-              </View>
-            )}
             <View style={styles.infoItemLast}>
               <Text style={styles.infoLabel}>Agente responsável</Text>
               <Text style={styles.infoValue}>{v.agenteNome}</Text>

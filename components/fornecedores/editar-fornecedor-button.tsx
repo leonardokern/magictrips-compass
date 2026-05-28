@@ -15,9 +15,6 @@ type Props = {
     cnpj: string
     tipo: TipoFornecedor | null
     tiposProdutoIds: string[]
-    modoComissionado: boolean
-    modoComissionadoDia: number | null
-    modoNet: boolean
   }
   tiposProduto: TipoProduto[]
 }

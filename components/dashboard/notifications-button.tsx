@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { AlertTriangle, Bell, CalendarDays, CheckCircle2, ShoppingCart } from "lucide-react"
+import { AlertTriangle, Bell, CalendarDays, CheckCircle2, ShoppingCart, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { dispensarLembrete } from "@/app/(dashboard)/notificacoes/actions"
 import { createClient } from "@/lib/supabase/client"
@@ -26,6 +26,7 @@ const TIPO_ICONE: Record<string, React.ReactNode> = {
   venda_pendente_validacao: <ShoppingCart className="h-3.5 w-3.5" />,
   venda_aprovada: <CheckCircle2 className="h-3.5 w-3.5" />,
   venda_em_revisao: <AlertTriangle className="h-3.5 w-3.5" />,
+  venda_excluida: <Trash2 className="h-3.5 w-3.5" />,
   agenda_compartilhada: <CalendarDays className="h-3.5 w-3.5" />,
 }
 
@@ -33,6 +34,7 @@ const TIPO_LABEL: Record<string, string> = {
   venda_pendente_validacao: "Venda aguardando aprovação",
   venda_aprovada: "Venda aprovada",
   venda_em_revisao: "Venda devolvida para revisão",
+  venda_excluida: "Venda excluída",
   agenda_compartilhada: "Evento compartilhado com você",
 }
 
@@ -41,6 +43,8 @@ const TIPO_ACCENT: Record<string, string> = {
     "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
   venda_em_revisao:
     "border-orange-400/30 bg-orange-400/10 text-orange-300",
+  venda_excluida:
+    "border-rose-400/30 bg-rose-400/10 text-rose-300",
   agenda_compartilhada:
     "border-nexus-bright/30 bg-nexus-bright/10 text-nexus-bright",
 }

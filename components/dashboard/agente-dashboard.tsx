@@ -17,6 +17,7 @@ import {
   DashboardPeriodoFilter,
   type PeriodoValue,
 } from "./dashboard-periodo-filter"
+import { getStatusLabel, getStatusChip } from "@/lib/utils/venda-status"
 
 const MESES_PT = [
   "janeiro",
@@ -33,21 +34,6 @@ const MESES_PT = [
   "dezembro",
 ]
 
-const STATUS_CHIP: Record<string, string> = {
-  rascunho: "border-white/15 bg-white/[0.04] text-white/65",
-  em_revisao: "border-orange-400/40 bg-orange-400/10 text-orange-300",
-  pendente_validacao: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  aprovado: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-  cancelado: "border-rose-500/30 bg-rose-500/10 text-rose-300",
-}
-
-const STATUS_LABEL: Record<string, string> = {
-  rascunho: "Rascunho",
-  em_revisao: "Em Revisão",
-  pendente_validacao: "Aguardando",
-  aprovado: "Aprovada",
-  cancelado: "Cancelada",
-}
 
 type Props = {
   userId: string
@@ -408,9 +394,10 @@ export async function AgenteDashboard({
                         </TableCell>
                         <TableCell className="text-right">
                           <span
-                            className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${STATUS_CHIP[v.status] ?? STATUS_CHIP.rascunho}`}
+                            className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${getStatusChip(v.status)}`}
                           >
-                            {STATUS_LABEL[v.status] ?? v.status}
+                            {/* Dashboard do agente — nunca tem podeAprovar */}
+                            {getStatusLabel(v.status)}
                           </span>
                         </TableCell>
                       </TableRow>

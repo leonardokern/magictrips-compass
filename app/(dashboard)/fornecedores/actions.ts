@@ -51,15 +51,10 @@ export async function createFornecedor(
   // RPC com SECURITY DEFINER — bypassa RLS em fornecedores + fornecedor_tipos_produto
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: novoId, error } = await (supabase as any).rpc("criar_fornecedor", {
-    p_nome:                 values.nome,
-    p_cnpj:                 values.cnpj,
-    p_tipo:                 values.tipo || null,
-    p_modo_comissionado:    values.modo_comissionado,
-    p_modo_comissionado_dia: values.modo_comissionado
-      ? (values.modo_comissionado_dia_pagamento ?? null)
-      : null,
-    p_modo_net:             values.modo_net,
-    p_tipos_produto_ids:    values.tipos_produto_ids,
+    p_nome:              values.nome,
+    p_cnpj:              values.cnpj,
+    p_tipo:              values.tipo || null,
+    p_tipos_produto_ids: values.tipos_produto_ids,
   })
 
   if (error) {
@@ -122,16 +117,11 @@ export async function updateFornecedor(
   // RPC com SECURITY DEFINER — bypassa RLS em fornecedores + fornecedor_tipos_produto
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any).rpc("atualizar_fornecedor", {
-    p_id:                   id,
-    p_nome:                 values.nome,
-    p_cnpj:                 values.cnpj,
-    p_tipo:                 values.tipo || null,
-    p_modo_comissionado:    values.modo_comissionado,
-    p_modo_comissionado_dia: values.modo_comissionado
-      ? (values.modo_comissionado_dia_pagamento ?? null)
-      : null,
-    p_modo_net:             values.modo_net,
-    p_tipos_produto_ids:    values.tipos_produto_ids,
+    p_id:                id,
+    p_nome:              values.nome,
+    p_cnpj:              values.cnpj,
+    p_tipo:              values.tipo || null,
+    p_tipos_produto_ids: values.tipos_produto_ids,
   })
 
   if (error) return { ok: false, error: (error as { message: string }).message }

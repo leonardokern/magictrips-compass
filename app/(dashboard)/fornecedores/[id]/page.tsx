@@ -47,11 +47,11 @@ export default async function FornecedorDetailPage({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from("fornecedores")
-      .select("id, nome, cnpj, tipo, ativo, created_at, modo_comissionado, modo_comissionado_dia_pagamento, modo_net")
+      .select("id, nome, cnpj, tipo, ativo, created_at")
       .eq("id", id)
       .maybeSingle() as Promise<{ data: {
         id: string; nome: string; cnpj: string; tipo: string | null; ativo: boolean
-        created_at: string; modo_comissionado: boolean; modo_comissionado_dia_pagamento: number | null; modo_net: boolean
+        created_at: string
       } | null }>,
     supabase
       .from("venda_produtos")
@@ -100,9 +100,6 @@ export default async function FornecedorDetailPage({
               cnpj: f.cnpj,
               tipo: f.tipo as TipoFornecedor | null,
               tiposProdutoIds,
-              modoComissionado: f.modo_comissionado,
-              modoComissionadoDia: f.modo_comissionado_dia_pagamento,
-              modoNet: f.modo_net,
             }}
             tiposProduto={(tiposProduto ?? []) as { id: string; nome: string; icone: string | null }[]}
           />

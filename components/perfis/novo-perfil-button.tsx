@@ -7,7 +7,13 @@ import { PerfilFormModal } from "./perfil-form-modal"
 
 type Empresa = { id: string; nome: string; slug: string }
 
-export function NovoPerfilButton({ empresas }: { empresas: Empresa[] }) {
+export function NovoPerfilButton({
+  empresas,
+  agendaEnabled,
+}: {
+  empresas: Empresa[]
+  agendaEnabled?: boolean
+}) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -23,6 +29,7 @@ export function NovoPerfilButton({ empresas }: { empresas: Empresa[] }) {
         open={open}
         onOpenChange={setOpen}
         empresas={empresas}
+        agendaEnabled={agendaEnabled}
       />
     </>
   )

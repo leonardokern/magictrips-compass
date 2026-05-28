@@ -22,8 +22,6 @@ export type Acao =
   | "editar"
   | "excluir"
   | "aprovar"
-  | "csv"
-  | "excel"
 
 /**
  * Verifica se um perfil tem permissão para uma ação em um módulo.

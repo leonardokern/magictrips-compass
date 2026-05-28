@@ -38,6 +38,7 @@ import {
 } from "@/app/(dashboard)/vendas/actions"
 import { cn } from "@/lib/utils"
 import { IconTooltip } from "@/components/ui/tooltip"
+import { getStatusLabel, getStatusChip } from "@/lib/utils/venda-status"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -100,6 +101,9 @@ export function VendaRowActions({
   const statusAtual = detalhes?.status ?? venda.status
   const podeAcionarModal =
     podeAprovar && statusAtual === "pendente_validacao"
+  // Agente dono de uma venda em revisão — pode abrir o editor a partir
+  // do modal de visualização (a tabela mostra só o olho nesse status).
+  const podeRevisarNoModal = podeEditar && statusAtual === "em_revisao"
 
   // Carrega detalhes quando o modal de visualização é aberto
   useEffect(() => {
@@ -198,10 +202,12 @@ export function VendaRowActions({
           // Pra Admin/Gerente sobre uma venda aguardando aprovação, o
           // primeiro botão remete a "revisar/validar", não a "visualizar".
           // Mesmo clique abre o modal — apenas a affordance muda.
+          //
+          // Em `em_revisao` a venda já foi devolvida ao agente — o gerente
+          // só pode visualizar (sem ação de validar pendente); a correção
+          // é responsabilidade do agente via botão de editar (lápis).
           const ehRevisao =
-            podeAprovar &&
-            (venda.status === "pendente_validacao" ||
-              venda.status === "em_revisao")
+            podeAprovar && venda.status === "pendente_validacao"
           return ehRevisao ? (
             <IconAction
               icon={ShieldCheck}
@@ -218,7 +224,7 @@ export function VendaRowActions({
             />
           )
         })()}
-        {podeEditar && (
+        {podeEditar && venda.status !== "em_revisao" && (
           <IconAction
             icon={Pencil}
             label="Editar venda"
@@ -275,7 +281,10 @@ export function VendaRowActions({
               <DialogTitle className="text-base font-semibold text-white">
                 {detalhes?.identificador ?? venda.identificador} · {venda.clienteNome}
               </DialogTitle>
-              <StatusBadge status={detalhes?.status ?? venda.status} />
+              <StatusBadge
+                status={detalhes?.status ?? venda.status}
+                podeAprovar={podeAprovar}
+              />
             </div>
             <DialogDescription className="sr-only">
               Resumo completo da venda {detalhes?.identificador ?? venda.identificador} de {venda.clienteNome}
@@ -323,6 +332,20 @@ export function VendaRowActions({
                   Validar venda
                 </Button>
               </>
+            )}
+
+            {podeRevisarNoModal && detalhes && (
+              <Button
+                onClick={() => {
+                  setViewOpen(false)
+                  setEditarOpen(true)
+                }}
+                className="border border-nexus-bright/25 bg-nexus-bright/[0.08] text-nexus-bright hover:border-nexus-bright/50 hover:bg-nexus-bright/15"
+                variant="ghost"
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Revisar e reenviar para validação
+              </Button>
             )}
           </DialogFooter>
         </DialogContent>
@@ -458,31 +481,21 @@ export function VendaRowActions({
 
 // ─── Badge de status ─────────────────────────────────────────────────────────
 
-const STATUS_LABEL: Record<string, string> = {
-  rascunho: "Rascunho",
-  em_revisao: "Em Revisão",
-  pendente_validacao: "Aguardando aprovação",
-  aprovado: "Aprovada",
-  cancelado: "Cancelada",
-}
-
-const STATUS_CHIP: Record<string, string> = {
-  rascunho: "border-white/15 bg-white/[0.04] text-white/55",
-  em_revisao: "border-orange-400/40 bg-orange-400/10 text-orange-300",
-  pendente_validacao: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  aprovado: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-  cancelado: "border-rose-500/30 bg-rose-500/10 text-rose-300",
-}
-
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({
+  status,
+  podeAprovar,
+}: {
+  status: string
+  podeAprovar: boolean
+}) {
   return (
     <span
       className={cn(
         "rounded-full border px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider",
-        STATUS_CHIP[status] ?? STATUS_CHIP.rascunho,
+        getStatusChip(status),
       )}
     >
-      {STATUS_LABEL[status] ?? status}
+      {getStatusLabel(status, { podeAprovar })}
     </span>
   )
 }

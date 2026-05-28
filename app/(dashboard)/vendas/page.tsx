@@ -17,27 +17,12 @@ import { formatBRL } from "@/lib/utils/sum-parser"
 import { NovaVendaButton } from "@/components/vendas/nova-venda-button"
 import { VendaRowActions } from "@/components/vendas/venda-row-actions"
 import { VendasSearchInput } from "@/components/vendas/vendas-search-input"
+import { getStatusLabel, getStatusChip } from "@/lib/utils/venda-status"
 
 export const metadata: Metadata = { title: "Vendas" }
 
 /** Tamanho da página da lista de "Validadas". Pendentes não pagina (volume baixo). */
 const PAGE_SIZE = 20
-
-const STATUS_LABEL: Record<string, string> = {
-  rascunho: "Rascunho",
-  em_revisao: "Em Revisão",
-  pendente_validacao: "Aguardando aprovação",
-  aprovado: "Aprovada",
-  cancelado: "Cancelada",
-}
-
-const STATUS_CHIP: Record<string, string> = {
-  rascunho: "border-white/15 bg-white/[0.04] text-white/55",
-  em_revisao: "border-orange-400/40 bg-orange-400/10 text-orange-300",
-  pendente_validacao: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  aprovado: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-  cancelado: "border-rose-500/30 bg-rose-500/10 text-rose-300",
-}
 
 const STATUS_PENDENTES = ["pendente_validacao", "em_revisao"] as const
 
@@ -452,10 +437,10 @@ function VendasSection({
                       <span
                         className={
                           "rounded-full border px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider " +
-                          (STATUS_CHIP[v.status] ?? STATUS_CHIP.rascunho)
+                          getStatusChip(v.status)
                         }
                       >
-                        {STATUS_LABEL[v.status] ?? v.status}
+                        {getStatusLabel(v.status, { podeAprovar })}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -517,10 +502,10 @@ function VendasSection({
                   <span
                     className={
                       "rounded-full border px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider " +
-                      (STATUS_CHIP[v.status] ?? STATUS_CHIP.rascunho)
+                      getStatusChip(v.status)
                     }
                   >
-                    {STATUS_LABEL[v.status] ?? v.status}
+                    {getStatusLabel(v.status, { podeAprovar })}
                   </span>
                 </div>
                 <div className="mt-2 flex items-baseline justify-between gap-2">

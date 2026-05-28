@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Pencil, Power, Trash2 } from "lucide-react"
+import { Pencil, Power, Trash2, type LucideIcon } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { LoaderButton } from "@/components/ui/loader-button"
@@ -20,6 +20,8 @@ import {
   deleteCampoExtra,
   toggleCampoExtraAtivo,
 } from "@/app/(dashboard)/tipos-produto/actions"
+import { cn } from "@/lib/utils"
+import { IconTooltip } from "@/components/ui/tooltip"
 import type { CampoOpcao, TipoCampo } from "@/lib/schemas/tipo-produto"
 
 type Props = {
@@ -77,46 +79,32 @@ export function CampoExtraRowActions({
   }
 
   return (
-    <div className="flex items-center justify-end gap-1">
+    <div className="flex items-center justify-end gap-1.5">
       {podeEditar && (
         <>
-          <Button
-            size="sm"
-            variant="ghost"
+          <IconAction
+            icon={Pencil}
+            label="Editar"
             onClick={() => setEditOpen(true)}
-            className="h-8 px-2 text-xs text-white/75 hover:bg-white/[0.05] hover:text-white"
-          >
-            <Pencil className="mr-1 h-3.5 w-3.5" />
-            Editar
-          </Button>
-          <LoaderButton
-            size="sm"
-            variant="ghost"
+            tone="bright"
+          />
+          <IconAction
+            icon={Power}
+            label={campo.ativo ? "Inativar" : "Ativar"}
             onClick={onToggle}
-            loading={isPending}
-            className={
-              "h-8 px-2 text-xs " +
-              (campo.ativo
-                ? "text-amber-300/85 hover:bg-amber-500/10 hover:text-amber-200"
-                : "text-emerald-300/85 hover:bg-emerald-500/10 hover:text-emerald-200")
-            }
-          >
-            {!isPending && <Power className="mr-1 h-3.5 w-3.5" />}
-            {campo.ativo ? "Inativar" : "Ativar"}
-          </LoaderButton>
+            disabled={isPending}
+            tone={campo.ativo ? "amber" : "emerald"}
+          />
         </>
       )}
 
       {podeExcluir && (
-        <Button
-          size="sm"
-          variant="ghost"
+        <IconAction
+          icon={Trash2}
+          label="Remover"
           onClick={() => setConfirmOpen(true)}
-          className="h-8 px-2 text-xs text-rose-300/85 hover:bg-rose-500/10 hover:text-rose-200"
-        >
-          <Trash2 className="mr-1 h-3.5 w-3.5" />
-          Remover
-        </Button>
+          tone="rose"
+        />
       )}
 
       <CampoExtraFormModal
@@ -159,5 +147,48 @@ export function CampoExtraRowActions({
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+// ─── Icon button ─────────────────────────────────────────────────────────────
+
+type Tone = "neutral" | "bright" | "amber" | "emerald" | "rose"
+
+type IconActionProps = {
+  icon: LucideIcon
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  tone: Tone
+}
+
+function IconAction({ icon: Icon, label, onClick, disabled, tone }: IconActionProps) {
+  const toneClass: Record<Tone, string> = {
+    neutral:
+      "border-white/10 bg-white/[0.03] text-white/75 hover:border-white/25 hover:bg-white/[0.07] hover:text-white",
+    bright:
+      "border-nexus-bright/25 bg-nexus-bright/[0.08] text-nexus-bright hover:border-nexus-bright/50 hover:bg-nexus-bright/15",
+    amber:
+      "border-amber-500/25 bg-amber-500/[0.08] text-amber-300 hover:border-amber-500/50 hover:bg-amber-500/15 hover:text-amber-200",
+    emerald:
+      "border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-300 hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:text-emerald-200",
+    rose:
+      "border-rose-500/25 bg-rose-500/[0.08] text-rose-300 hover:border-rose-500/50 hover:bg-rose-500/15 hover:text-rose-200",
+  }
+  return (
+    <IconTooltip label={label}>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        className={cn(
+          "inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+          toneClass[tone],
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </button>
+    </IconTooltip>
   )
 }

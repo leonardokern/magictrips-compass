@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { Building2, Hash, Layers, Package, CreditCard } from "lucide-react"
+import { Building2, Hash, Layers, Package } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -47,9 +47,6 @@ type ModeProps =
         cnpj: string
         tipo: TipoFornecedor | null
         tiposProdutoIds: string[]
-        modoComissionado: boolean
-        modoComissionadoDia: number | null
-        modoNet: boolean
       }
     }
 
@@ -66,9 +63,6 @@ type FormState = {
   cnpj: string
   tipo: TipoFornecedor | ""
   tiposProdutoIds: string[]
-  modoComissionado: boolean
-  modoComissionadoDia: string // string para o input, parseado no submit
-  modoNet: boolean
 }
 
 const EMPTY: FormState = {
@@ -76,9 +70,6 @@ const EMPTY: FormState = {
   cnpj: "",
   tipo: "",
   tiposProdutoIds: [],
-  modoComissionado: false,
-  modoComissionadoDia: "",
-  modoNet: false,
 }
 
 export function FornecedorFormModal(props: Props) {
@@ -99,9 +90,6 @@ export function FornecedorFormModal(props: Props) {
         cnpj: props.initial.cnpj,
         tipo: props.initial.tipo ?? "",
         tiposProdutoIds: props.initial.tiposProdutoIds,
-        modoComissionado: props.initial.modoComissionado,
-        modoComissionadoDia: props.initial.modoComissionadoDia?.toString() ?? "",
-        modoNet: props.initial.modoNet,
       })
     } else {
       setV(EMPTY)
@@ -126,27 +114,11 @@ export function FornecedorFormModal(props: Props) {
     e.preventDefault()
     setErrors({})
 
-    // Valida dia quando modo comissionado está ativo
-    if (v.modoComissionado && v.modoComissionadoDia) {
-      const dia = parseInt(v.modoComissionadoDia, 10)
-      if (isNaN(dia) || dia < 1 || dia > 31) {
-        setErrors({ modoComissionadoDia: "Dia deve ser entre 1 e 31." })
-        return
-      }
-    }
-
-    const diaParsed = v.modoComissionado && v.modoComissionadoDia
-      ? parseInt(v.modoComissionadoDia, 10) || null
-      : null
-
     const payload = {
       nome: v.nome,
       cnpj: onlyDigits(v.cnpj),
       tipo: v.tipo || undefined,
       tipos_produto_ids: v.tiposProdutoIds,
-      modo_comissionado: v.modoComissionado,
-      modo_comissionado_dia_pagamento: diaParsed,
-      modo_net: v.modoNet,
     }
 
     startTransition(async () => {
@@ -285,79 +257,6 @@ export function FornecedorFormModal(props: Props) {
               </div>
             </div>
           )}
-
-          {/* Modo de pagamento */}
-          <div>
-            <Label className="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-white/55">
-              <CreditCard className="h-3.5 w-3.5" />
-              Modo de pagamento aceito
-            </Label>
-            <div className="space-y-2">
-              {/* Comissionado */}
-              <div className="rounded-lg border border-white/[0.06] bg-white/[0.02]">
-                <label className="flex cursor-pointer items-start gap-2.5 px-3 py-2.5">
-                  <Checkbox
-                    checked={v.modoComissionado}
-                    onCheckedChange={(c) => {
-                      if (readOnly) return
-                      update("modoComissionado", !!c)
-                      if (!c) update("modoComissionadoDia", "")
-                    }}
-                    disabled={readOnly}
-                    className="mt-0.5 shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <span className="text-sm text-white/80">Comissionado</span>
-                    <p className="text-[11px] text-white/40">
-                      Fornecedor paga o valor cheio e repassa o RAV extra na data combinada.
-                    </p>
-                  </div>
-                </label>
-
-                {v.modoComissionado && (
-                  <div className="border-t border-white/[0.06] px-3 pb-3 pt-2.5">
-                    <Label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/40">
-                      Dia do repasse (todo mês)
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={1}
-                        max={31}
-                        value={v.modoComissionadoDia}
-                        onChange={(e) => update("modoComissionadoDia", e.target.value)}
-                        placeholder="ex: 15"
-                        className="w-24 font-mono"
-                        disabled={readOnly}
-                      />
-                      <span className="text-xs text-white/40">de cada mês</span>
-                    </div>
-                    {errors.modoComissionadoDia && (
-                      <p className="mt-1 text-[11px] text-destructive">
-                        {errors.modoComissionadoDia}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* NET */}
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 transition-colors hover:bg-white/[0.05] has-[:checked]:border-nexus-bright/30 has-[:checked]:bg-nexus-bright/[0.06]">
-                <Checkbox
-                  checked={v.modoNet}
-                  onCheckedChange={(c) => !readOnly && update("modoNet", !!c)}
-                  disabled={readOnly}
-                  className="mt-0.5 shrink-0"
-                />
-                <div className="min-w-0 flex-1">
-                  <span className="text-sm text-white/80">Líquido (NET)</span>
-                  <p className="text-[11px] text-white/40">
-                    RAV extra descontado na hora do pagamento. Sem lançamento separado.
-                  </p>
-                </div>
-              </label>
-            </div>
-          </div>
 
           <DialogFooter>
             {readOnly ? (

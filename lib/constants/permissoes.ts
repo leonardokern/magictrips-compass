@@ -28,6 +28,13 @@ export type ModuloDef = {
   /** Resumo do que o módulo faz, exibido no header da seção do editor. */
   description: string
   acoes: AcaoDef[]
+  /**
+   * Marca o módulo como "ainda não disponível na V1". O editor de perfis
+   * renderiza a linha em estado desabilitado (visual + interação) e exibe
+   * um badge "Em breve". O catálogo continua existindo (e o `can()` segue
+   * funcionando) pra quando o módulo for ativado.
+   */
+  naoDisponivel?: boolean
 }
 
 const CRUD_BASE: AcaoDef[] = [
@@ -69,6 +76,7 @@ export const MODULOS_PERMISSAO: ModuloDef[] = [
     label: "Financeiro",
     description: "Contas a receber, contas a pagar, fluxo de caixa, clientes faturados.",
     acoes: CRUD_BASE,
+    naoDisponivel: true,
   },
   {
     key: "cartoes",
@@ -120,15 +128,17 @@ export const MODULOS_PERMISSAO: ModuloDef[] = [
     label: "Auditoria",
     description: "Log imutável de ações críticas (somente leitura).",
     acoes: [{ key: "ler", label: "Ler" }],
+    naoDisponivel: true,
   },
   {
     key: "exportar",
     label: "Exportações",
-    description: "Geração de arquivos CSV/Excel para o Otoos e relatórios.",
-    acoes: [
-      { key: "csv", label: "CSV" },
-      { key: "excel", label: "Excel" },
-    ],
+    description: "Geração de arquivos para o Otoos e relatórios.",
+    // Apenas uma permissão booleana: ou tem ou não tem acesso a exportações.
+    // A granularidade por formato (csv/excel) foi removida — todo formato
+    // disponível fica liberado quando essa permissão estiver ativa.
+    acoes: [{ key: "ver", label: "Permitir" }],
+    naoDisponivel: true,
   },
 ]
 

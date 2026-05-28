@@ -76,8 +76,6 @@ export type DadosNovaVenda = {
     id: string
     nome: string
     tipos_produto_ids: string[]
-    modo_comissionado: boolean
-    modo_net: boolean
   }[]
   cartoes: {
     id: string
@@ -872,7 +870,7 @@ export async function getDadosNovaVenda(): Promise<ActionResult<DadosNovaVenda>>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from("fornecedores")
-      .select("id, nome, modo_comissionado, modo_net, fornecedor_tipos_produto(tipo_produto_id)")
+      .select("id, nome, fornecedor_tipos_produto(tipo_produto_id)")
       .eq("ativo", true)
       .order("nome"),
     supabase
@@ -947,15 +945,11 @@ export async function getDadosNovaVenda(): Promise<ActionResult<DadosNovaVenda>>
       fornecedores: ((fornecedores ?? []) as {
         id: string
         nome: string
-        modo_comissionado: boolean
-        modo_net: boolean
         fornecedor_tipos_produto: { tipo_produto_id: string }[] | null
       }[]).map((f) => ({
         id: f.id,
         nome: f.nome,
         tipos_produto_ids: (f.fornecedor_tipos_produto ?? []).map((ftp) => ftp.tipo_produto_id),
-        modo_comissionado: f.modo_comissionado ?? false,
-        modo_net: f.modo_net ?? false,
       })),
       cartoes: cartoes ?? [],
       origens: (origens ?? []).map((o) => ({
@@ -1005,8 +999,6 @@ export type VendaParaEditar = {
     maxStep: 5
     empresaId: string
     dataVenda: string
-    dataInicioViagem: string
-    dataFimViagem: string
     clienteValue: string | null
     clienteNovo: {
       tipo_pessoa: "fisica" | "juridica"
@@ -1028,6 +1020,8 @@ export type VendaParaEditar = {
       comissao_vendedor_str: string
       valores_extras: Record<string, string>
       data_emissao_str: string
+      data_inicio_viagem_str: string
+      data_fim_viagem_str: string
       pgto_modo: "comissionado" | "net"
       pgto_forma: string; pgto_cartao_id: string
       pgto_valor_total_str: string; pgto_entrada_str: string
@@ -1098,9 +1092,6 @@ export async function getVendaParaEditar(
   if (!dadosRes.data) return { ok: false, error: "Erro ao carregar dados." }
   if (!v) return { ok: false, error: "Venda não encontrada." }
 
-  const dataInicioViagem = (produtos ?? []).find((p) => p.data_inicio_viagem)?.data_inicio_viagem ?? ""
-  const dataFimViagem    = (produtos ?? []).find((p) => p.data_fim_viagem)?.data_fim_viagem ?? ""
-
   type ItemRaw = {
     tipo: string; valor_total: number | null; num_parcelas: number | null
     valor_parcela: number | null; plataforma_link: string | null
@@ -1115,8 +1106,6 @@ export async function getVendaParaEditar(
     maxStep: 5,
     empresaId:        v.empresa_id ?? "",
     dataVenda:        v.data_venda ?? "",
-    dataInicioViagem: dataInicioViagem ?? "",
-    dataFimViagem:    dataFimViagem ?? "",
     clienteValue:     v.cliente_id ?? null,
     clienteNovo: {
       tipo_pessoa: "fisica", nome: "", cpf: "", data_nascimento: "",
@@ -1139,6 +1128,8 @@ export async function getVendaParaEditar(
       comissao_vendedor_str:    numStr(p.comissao_vendedor),
       valores_extras:           (p.valores_extras as Record<string, string> | null) ?? {},
       data_emissao_str:         p.data_emissao ?? "",
+      data_inicio_viagem_str:   p.data_inicio_viagem ?? "",
+      data_fim_viagem_str:      p.data_fim_viagem ?? "",
       pgto_modo:                (p.pgto_modo as "comissionado" | "net") ?? "comissionado",
       pgto_forma:               p.pgto_forma ?? "cartao",
       pgto_cartao_id:           p.pgto_cartao_id ?? "",

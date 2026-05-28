@@ -484,15 +484,14 @@ export function RelatorioPDF({ venda: v, logoPath }: { venda: VendaParaPDF; logo
                 </View>
 
                 <View style={s.prodBody}>
-                  {/* Campos personalizados do tipo de produto */}
-                  {p.camposExtras.length > 0 && (
+                  {/* Identificação do produto: datas (emissão, viagem) + localizadores */}
+                  {(p.dataEmissao || p.dataInicio || p.dataFim || p.localizador || p.localizadorFornecedor) && (
                     <>
-                      <Text style={s.subSectionLabel}>Detalhes</Text>
+                      <Text style={s.subSectionLabel}>Identificação</Text>
                       <View style={s.fieldGrid}>
                         {p.dataEmissao && <Campo label="Emissão" value={formatDate(p.dataEmissao)} />}
-                        {p.camposExtras.map((ce, j) => (
-                          <Campo key={j} label={ce.nome} value={ce.valor} />
-                        ))}
+                        {p.dataInicio && <Campo label="Início viagem" value={formatDate(p.dataInicio)} />}
+                        {p.dataFim && <Campo label="Fim viagem" value={formatDate(p.dataFim)} />}
                         {p.localizador && <Campo label="Localizador" value={p.localizador} />}
                         {p.localizadorFornecedor && <Campo label="Loc. Fornecedor" value={p.localizadorFornecedor} />}
                       </View>
@@ -500,13 +499,14 @@ export function RelatorioPDF({ venda: v, logoPath }: { venda: VendaParaPDF; logo
                     </>
                   )}
 
-                  {/* Quando não há campos extras, mostra localizadores e/ou emissão */}
-                  {p.camposExtras.length === 0 && (p.localizador || p.localizadorFornecedor || p.dataEmissao) && (
+                  {/* Detalhes personalizados do tipo (Companhia, Trecho, etc.) */}
+                  {p.camposExtras.length > 0 && (
                     <>
+                      <Text style={s.subSectionLabel}>Detalhes do tipo</Text>
                       <View style={s.fieldGrid}>
-                        {p.dataEmissao && <Campo label="Emissão" value={formatDate(p.dataEmissao)} />}
-                        {p.localizador && <Campo label="Localizador" value={p.localizador} />}
-                        {p.localizadorFornecedor && <Campo label="Loc. Fornecedor" value={p.localizadorFornecedor} />}
+                        {p.camposExtras.map((ce, j) => (
+                          <Campo key={j} label={ce.nome} value={ce.valor} />
+                        ))}
                       </View>
                       <View style={s.divider} />
                     </>

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/server"
 import { requireCurrentUser } from "@/lib/hooks/use-current-user"
 import { can } from "@/lib/hooks/use-permissions"
+import { isFeatureEnabled } from "@/lib/feature-flags"
 import { DeletePerfilButton } from "@/components/perfis/delete-perfil-button"
 import { EditarPerfilButton } from "@/components/perfis/editar-perfil-button"
 import { PermissoesTable } from "@/components/perfis/permissoes-table"
@@ -35,6 +36,7 @@ export default async function PerfilDetailPage({
 
   const { id } = await params
   const supabase = await createClient()
+  const agendaEnabled = await isFeatureEnabled("agenda")
 
   const [perfilRes, empresasRes] = await Promise.all([
     supabase
@@ -134,6 +136,7 @@ export default async function PerfilDetailPage({
                 comissoes: overridesMap,
               }}
               empresas={empresas}
+              agendaEnabled={agendaEnabled}
             />
           )}
           {podeExcluir && (
@@ -287,6 +290,7 @@ export default async function PerfilDetailPage({
           onChange={() => {}}
           disabled
           readOnlyAllTrue={perfil.nome === "Administrador"}
+          agendaEnabled={agendaEnabled}
         />
       </div>
     </div>

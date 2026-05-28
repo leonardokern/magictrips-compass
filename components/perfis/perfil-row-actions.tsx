@@ -44,6 +44,7 @@ type Props = {
   empresas: Empresa[]
   usuariosCount: number
   podeEditar: boolean
+  agendaEnabled?: boolean
 }
 
 export function PerfilRowActions({
@@ -51,6 +52,7 @@ export function PerfilRowActions({
   empresas,
   usuariosCount,
   podeEditar,
+  agendaEnabled,
 }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -134,6 +136,7 @@ export function PerfilRowActions({
         onOpenChange={setOpen}
         empresas={empresas}
         initialStep={modalStep}
+        agendaEnabled={agendaEnabled}
       />
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>

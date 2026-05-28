@@ -32,9 +32,6 @@ type Props = {
     tipo: TipoFornecedor | null
     ativo: boolean
     tiposProdutoIds: string[]
-    modoComissionado: boolean
-    modoComissionadoDia: number | null
-    modoNet: boolean
   }
   tiposProduto: TipoProduto[]
   podeEditar: boolean
@@ -52,9 +49,6 @@ export function FornecedorRowActions({ fornecedor: f, tiposProduto, podeEditar }
     cnpj: f.cnpj,
     tipo: f.tipo,
     tiposProdutoIds: f.tiposProdutoIds,
-    modoComissionado: f.modoComissionado,
-    modoComissionadoDia: f.modoComissionadoDia,
-    modoNet: f.modoNet,
   }
 
   function onToggleConfirmed() {
@@ -99,9 +93,6 @@ export function FornecedorRowActions({ fornecedor: f, tiposProduto, podeEditar }
           tipo: f.tipo,
           ativo: f.ativo,
           tiposProdutoIds: f.tiposProdutoIds,
-          modoComissionado: f.modoComissionado,
-          modoComissionadoDia: f.modoComissionadoDia,
-          modoNet: f.modoNet,
         }}
         tiposProduto={tiposProduto}
       />

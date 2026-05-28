@@ -124,9 +124,28 @@ function ProdutoRow({ p }: { p: Produto }) {
             <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-4">
               <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
 
+                {/* Fornecedor */}
+                {p.fornecedorNome && (
+                  <MiniStat label="Fornecedor" value={p.fornecedorNome} />
+                )}
+
                 {/* Data de emissão do produto (conferência) */}
                 {p.dataEmissao && (
                   <MiniStat label="Emissão" value={formatDateBR(p.dataEmissao)} />
+                )}
+
+                {/* Datas da viagem deste produto */}
+                {p.dataInicio && (
+                  <MiniStat
+                    label="Início viagem"
+                    value={formatDateBR(p.dataInicio)}
+                  />
+                )}
+                {p.dataFim && (
+                  <MiniStat
+                    label="Fim viagem"
+                    value={formatDateBR(p.dataFim)}
+                  />
                 )}
 
                 {/* Campos personalizados do tipo de produto */}
@@ -136,11 +155,6 @@ function ProdutoRow({ p }: { p: Produto }) {
 
                 {/* Destino */}
                 {p.destino && <MiniStat label="Destino" value={p.destino} />}
-
-                {/* Fornecedor */}
-                {p.fornecedorNome && (
-                  <MiniStat label="Fornecedor" value={p.fornecedorNome} />
-                )}
 
                 {/* Localizadores */}
                 {p.localizador && (
@@ -313,16 +327,6 @@ export function VendaResumoPanel({ detalhes: d, mostraComissao, vendaId, mostraR
               <Stat label="Agente" value={d.agenteNome} />
               <Stat label="PAX" value={`${d.pax} passageiro(s)`} />
               {d.origem && <Stat label="Origem do lead" value={d.origem} />}
-              {d.dataInicioViagem && (
-                <Stat
-                  label="Período da viagem"
-                  value={
-                    d.dataFimViagem
-                      ? `${formatDateBR(d.dataInicioViagem)} – ${formatDateBR(d.dataFimViagem)}`
-                      : formatDateBR(d.dataInicioViagem)
-                  }
-                />
-              )}
             </div>
           </Bloco>
 

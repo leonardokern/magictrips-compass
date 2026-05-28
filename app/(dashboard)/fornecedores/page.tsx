@@ -70,7 +70,7 @@ export default async function FornecedoresPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase as any)
     .from("fornecedores")
-    .select("id, nome, cnpj, tipo, ativo, modo_comissionado, modo_comissionado_dia_pagamento, modo_net", { count: "exact" })
+    .select("id, nome, cnpj, tipo, ativo", { count: "exact" })
     .order("nome")
     .range(from, to)
 
@@ -96,7 +96,6 @@ export default async function FornecedoresPage({
 
   type FornRow = {
     id: string; nome: string; cnpj: string; tipo: string | null; ativo: boolean
-    modo_comissionado: boolean; modo_comissionado_dia_pagamento: number | null; modo_net: boolean
   }
   const fornecedores = (fornecedoresRaw ?? []) as FornRow[]
 
@@ -185,9 +184,6 @@ export default async function FornecedoresPage({
                         tipo: f.tipo as TipoFornecedor | null,
                         ativo: f.ativo,
                         tiposProdutoIds: vinculosPorFornecedor.get(f.id) ?? [],
-                        modoComissionado: f.modo_comissionado,
-                        modoComissionadoDia: f.modo_comissionado_dia_pagamento,
-                        modoNet: f.modo_net,
                       }}
                       tiposProduto={tiposProdutoList}
                       podeEditar={podeEditar}
@@ -232,9 +228,6 @@ export default async function FornecedoresPage({
                       tipo: f.tipo as TipoFornecedor | null,
                       ativo: f.ativo,
                       tiposProdutoIds: vinculosPorFornecedor.get(f.id) ?? [],
-                      modoComissionado: f.modo_comissionado,
-                      modoComissionadoDia: f.modo_comissionado_dia_pagamento,
-                      modoNet: f.modo_net,
                     }}
                     tiposProduto={tiposProdutoList}
                     podeEditar={podeEditar}

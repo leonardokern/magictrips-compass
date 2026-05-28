@@ -18,9 +18,10 @@ type Props = {
     comissoes: Record<string, number>
   }
   empresas: Empresa[]
+  agendaEnabled?: boolean
 }
 
-export function EditarPerfilButton({ id, initial, empresas }: Props) {
+export function EditarPerfilButton({ id, initial, empresas, agendaEnabled }: Props) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -39,6 +40,7 @@ export function EditarPerfilButton({ id, initial, empresas }: Props) {
         open={open}
         onOpenChange={setOpen}
         empresas={empresas}
+        agendaEnabled={agendaEnabled}
       />
     </>
   )

@@ -10,6 +10,8 @@ type Props = {
   /** Marca tudo como true e desabilita interação (Administrador). */
   readOnlyAllTrue?: boolean
   disabled?: boolean
+  /** Flag de feature — quando false, oculta módulos ainda não liberados. */
+  agendaEnabled?: boolean
 }
 
 // Colunas em ordem de exibição. Manter alinhado com o catálogo em
@@ -21,8 +23,6 @@ const ACOES_COLUNAS: { key: string; label: string }[] = [
   { key: "editar", label: "Editar" },
   { key: "excluir", label: "Excluir" },
   { key: "aprovar", label: "Aprovar" },
-  { key: "csv", label: "CSV" },
-  { key: "excel", label: "Excel" },
 ]
 
 export function PermissoesTable({
@@ -30,7 +30,11 @@ export function PermissoesTable({
   onChange,
   readOnlyAllTrue,
   disabled,
+  agendaEnabled,
 }: Props) {
+  const modulos = agendaEnabled
+    ? MODULOS_PERMISSAO
+    : MODULOS_PERMISSAO.filter((m) => m.key !== "agenda")
   function toggle(modulo: string, acao: string, checked: boolean) {
     if (readOnlyAllTrue || disabled) return
     onChange({
@@ -51,7 +55,7 @@ export function PermissoesTable({
   return (
     <div className="overflow-x-auto rounded-xl border border-white/[0.06] bg-white/[0.02]">
       {/* min-width garante que todas as colunas sejam visíveis antes de rolar */}
-      <table className="w-full border-separate border-spacing-0 text-sm" style={{ minWidth: 820 }}>
+      <table className="w-full border-separate border-spacing-0 text-sm" style={{ minWidth: 720 }}>
         <thead>
           <tr>
             {/* Coluna módulo: ocupa espaço restante */}
@@ -70,24 +74,51 @@ export function PermissoesTable({
           </tr>
         </thead>
         <tbody>
-          {MODULOS_PERMISSAO.map((mod) => {
+          {modulos.map((mod) => {
             const perms = value[mod.key] ?? {}
             const acoesDisponiveis: string[] = mod.acoes.map((a) => a.key)
+            const linhaDesabilitada = Boolean(mod.naoDisponivel)
+            // readOnlyAllTrue (Administrador) ignora "em breve" — Admin
+            // sempre marca tudo. Para os demais perfis, naoDisponivel trava
+            // toda a interação da linha.
+            const desabilitaInteracao =
+              readOnlyAllTrue || disabled || linhaDesabilitada
+
             return (
               <tr
                 key={mod.key}
-                className="group transition-colors hover:bg-white/[0.025]"
+                className={`group transition-colors ${
+                  linhaDesabilitada
+                    ? "opacity-50"
+                    : "hover:bg-white/[0.025]"
+                }`}
+                aria-disabled={linhaDesabilitada || undefined}
               >
-                <td className="sticky left-0 z-10 border-b border-white/[0.04] bg-[#0b1424] px-4 py-3 align-middle group-hover:bg-white/[0.04]">
-                  <button
-                    type="button"
-                    onClick={() => toggleLinhaInteira(mod.key, acoesDisponiveis)}
-                    disabled={readOnlyAllTrue || disabled}
-                    className="block text-left text-sm font-medium text-white hover:text-nexus-bright disabled:cursor-default disabled:hover:text-white"
-                    title="Clique para marcar/desmarcar toda a linha"
-                  >
-                    {mod.label}
-                  </button>
+                <td
+                  className={`sticky left-0 z-10 border-b border-white/[0.04] bg-[#0b1424] px-4 py-3 align-middle ${
+                    linhaDesabilitada ? "" : "group-hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleLinhaInteira(mod.key, acoesDisponiveis)}
+                      disabled={desabilitaInteracao}
+                      className="block text-left text-sm font-medium text-white hover:text-nexus-bright disabled:cursor-not-allowed disabled:hover:text-white"
+                      title={
+                        linhaDesabilitada
+                          ? "Módulo ainda não disponível"
+                          : "Clique para marcar/desmarcar toda a linha"
+                      }
+                    >
+                      {mod.label}
+                    </button>
+                    {linhaDesabilitada && (
+                      <span className="shrink-0 rounded-full border border-white/15 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white/55">
+                        Em breve
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-0.5 text-[11px] leading-relaxed text-white/45">
                     {mod.description}
                   </p>
@@ -118,7 +149,7 @@ export function PermissoesTable({
                       <div className="flex justify-center">
                         <Checkbox
                           checked={checked}
-                          disabled={readOnlyAllTrue || disabled}
+                          disabled={desabilitaInteracao}
                           onCheckedChange={(c) =>
                             toggle(mod.key, acao.key, c === true)
                           }

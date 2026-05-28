@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { Building2, Hash, Calendar, CheckCircle2, XCircle } from "lucide-react"
+import { Building2, Hash } from "lucide-react"
 import {
   Dialog,
   DialogClose,
@@ -31,16 +31,12 @@ type Props = {
     tipo: TipoFornecedor | null
     ativo: boolean
     tiposProdutoIds: string[]
-    modoComissionado: boolean
-    modoComissionadoDia: number | null
-    modoNet: boolean
   }
   tiposProduto: TipoProduto[]
 }
 
 export function FornecedorViewModal({ open, onOpenChange, fornecedor: f, tiposProduto }: Props) {
   const tiposVinculados = tiposProduto.filter((tp) => f.tiposProdutoIds.includes(tp.id))
-  const temModo = f.modoComissionado || f.modoNet
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -104,63 +100,6 @@ export function FornecedorViewModal({ open, onOpenChange, fornecedor: f, tiposPr
             </Row>
           )}
 
-          {/* Modos de pagamento */}
-          <div>
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-white/40">
-              Modo de pagamento aceito
-            </p>
-            {!temModo ? (
-              <p className="text-sm text-white/35">Nenhum modo configurado.</p>
-            ) : (
-              <div className="space-y-2">
-                {f.modoComissionado && (
-                  <div className="flex items-start gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] px-3 py-2.5">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-                    <div>
-                      <p className="text-sm font-medium text-white/85">Comissionado</p>
-                      <p className="text-xs text-white/45">
-                        Fornecedor paga o valor cheio e repassa o RAV extra na data combinada.
-                      </p>
-                      {f.modoComissionadoDia && (
-                        <div className="mt-1.5 inline-flex items-center gap-1.5 rounded border border-white/10 bg-white/[0.04] px-2 py-0.5">
-                          <Calendar className="h-3 w-3 text-white/40" />
-                          <span className="text-[11px] text-white/60">
-                            Repasse todo dia <strong className="text-white/85">{f.modoComissionadoDia}</strong> do mês
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {f.modoNet && (
-                  <div className="flex items-start gap-3 rounded-lg border border-nexus-bright/20 bg-nexus-bright/[0.05] px-3 py-2.5">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-nexus-bright" />
-                    <div>
-                      <p className="text-sm font-medium text-white/85">Líquido (NET)</p>
-                      <p className="text-xs text-white/45">
-                        RAV extra descontado na hora do pagamento. Sem lançamento separado.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {!f.modoComissionado && (
-                  <div className="flex items-center gap-3 rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2">
-                    <XCircle className="h-4 w-4 shrink-0 text-white/20" />
-                    <p className="text-sm text-white/30">Comissionado — não aceito</p>
-                  </div>
-                )}
-
-                {!f.modoNet && (
-                  <div className="flex items-center gap-3 rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2">
-                    <XCircle className="h-4 w-4 shrink-0 text-white/20" />
-                    <p className="text-sm text-white/30">Líquido (NET) — não aceito</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </div>
 
         <DialogFooter>
