@@ -38,6 +38,8 @@ export const ICONES_TIPO_PRODUTO = [
   "013-onibus",
   "food-and-restaurant",
   "brinde",
+  "assento",
+  "patas",
 ] as const
 
 export const ICONE_LABEL: Record<(typeof ICONES_TIPO_PRODUTO)[number], string> = {
@@ -55,6 +57,8 @@ export const ICONE_LABEL: Record<(typeof ICONES_TIPO_PRODUTO)[number], string> =
   "013-onibus":             "Ônibus",
   "food-and-restaurant":    "Restaurante",
   "brinde":                 "Brinde",
+  "assento":                "Assento",
+  "patas":                  "Pet",
 }
 
 export const tipoProdutoVinculoCampoSchema = z.object({

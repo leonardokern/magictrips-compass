@@ -158,10 +158,27 @@ export async function updatePerfil(
   if (parsed.data.permissoes !== undefined) {
     updates.permissoes = sanitizarPermissoes(parsed.data.permissoes)
   }
-  // Nome/tipo/empresa editáveis pra todos exceto Administrador (bloqueado acima).
-  if (parsed.data.nome !== undefined) updates.nome = parsed.data.nome
-  if (parsed.data.tipo !== undefined) updates.tipo = parsed.data.tipo
-  if (parsed.data.empresa_id !== undefined) {
+  // IMPORTANTE: só inclui nome/tipo/empresa no UPDATE se realmente mudaram.
+  // O frontend manda sempre o estado completo, mas perfis sistema têm trigger
+  // `proteger_rename_perfis_sistema` que bloqueia qualquer UPDATE onde
+  // NEW.nome difere de OLD.nome — incluindo casos de reassignment idêntico
+  // que tropeçam em normalização de whitespace/encoding.
+  if (
+    parsed.data.nome !== undefined &&
+    parsed.data.nome !== antes.nome
+  ) {
+    updates.nome = parsed.data.nome
+  }
+  if (
+    parsed.data.tipo !== undefined &&
+    parsed.data.tipo !== antes.tipo
+  ) {
+    updates.tipo = parsed.data.tipo
+  }
+  if (
+    parsed.data.empresa_id !== undefined &&
+    parsed.data.empresa_id !== antes.empresa_id
+  ) {
     updates.empresa_id = parsed.data.empresa_id
   }
 

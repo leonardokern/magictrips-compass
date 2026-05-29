@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import {
   Eye,
@@ -105,29 +105,52 @@ export function VendaRowActions({
   // do modal de visualização (a tabela mostra só o olho nesse status).
   const podeRevisarNoModal = podeEditar && statusAtual === "em_revisao"
 
-  // Carrega detalhes quando o modal de visualização é aberto
+  // Defesa: se `venda.id` mudar (não deveria acontecer com keys corretas,
+  // mas garantimos), descarta detalhes pra forçar re-fetch.
+  useEffect(() => {
+    setDetalhes(null)
+  }, [venda.id])
+
+  // Carrega detalhes quando o modal de visualização é aberto.
+  // Cancela a fetch se o componente desmontar ou se o modal fechar antes
+  // da resposta voltar — evita setState em instância errada.
   useEffect(() => {
     if (!viewOpen) return
-    if (detalhes) return // já carregado
+    if (detalhes) return // já carregado pra esta venda
+    let cancelado = false
     setLoadingDetalhes(true)
     getVendaDetalhes(venda.id).then((r) => {
+      if (cancelado) return
       if (r.ok && r.data) setDetalhes(r.data)
       else if (!r.ok) toast.error(r.error ?? "Erro ao carregar venda.")
       setLoadingDetalhes(false)
     })
+    return () => {
+      cancelado = true
+    }
   }, [viewOpen, venda.id, detalhes])
 
   // Auto-abre o modal de visualização quando vem via ?venda=<id>
-  // (notificação clicada no header). Após abrir, limpa o param da URL.
+  // (notificação clicada no header). Usa flag local pra não disparar
+  // múltiplas vezes — desktop + mobile compartilham o mesmo URL e cada
+  // instância dispararia o efeito. A flag local garante uma única abertura
+  // por instância e impede que re-renders consequentes reabram um modal
+  // que o usuário fechou.
+  const jaAutoAbriuRef = useRef(false)
   useEffect(() => {
+    if (jaAutoAbriuRef.current) return
     const alvo = searchParams.get("venda")
-    if (alvo === venda.id) {
-      setViewOpen(true)
+    if (alvo !== venda.id) return
+    jaAutoAbriuRef.current = true
+    setViewOpen(true)
+    // Limpa o param na próxima tick — evita conflitar com a abertura
+    // do modal e com o `setState` do `setViewOpen` na mesma render.
+    queueMicrotask(() => {
       const params = new URLSearchParams(searchParams.toString())
       params.delete("venda")
       const qs = params.toString()
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
-    }
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, venda.id])
 

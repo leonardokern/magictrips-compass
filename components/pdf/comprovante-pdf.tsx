@@ -2,6 +2,7 @@ import React from "react"
 import {
   Document,
   Image,
+  Link,
   Page,
   View,
   Text,
@@ -549,23 +550,34 @@ export function ComprovantePDF({ venda: v, logoPath }: { venda: VendaParaPDF; lo
                 }}
               >
                 {v.cobranca.map((c, i) => (
-                  <View key={i} style={styles.cobrancaRow}>
-                    <View>
-                      <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: CORES.texto }}>
-                        {COBRANCA_TIPO_LABEL[c.tipo] ?? c.tipo}
-                      </Text>
-                      <Text style={{ fontSize: 7, color: CORES.textoSuave, marginTop: 1 }}>
-                        {c.parcelas > 1
-                          ? `${c.parcelas}x de ${formatBRL(c.valorParcela ?? c.valor / c.parcelas)}`
-                          : "À vista"}
-                        {c.dataPrimeiroRecebimento && c.tipo !== "cartao_credito" && c.tipo !== "cartao_debito"
-                          ? ` · Venc. ${formatDate(c.dataPrimeiroRecebimento)}`
-                          : ""}
+                  <View key={i}>
+                    <View style={styles.cobrancaRow}>
+                      <View>
+                        <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: CORES.texto }}>
+                          {COBRANCA_TIPO_LABEL[c.tipo] ?? c.tipo}
+                        </Text>
+                        <Text style={{ fontSize: 7, color: CORES.textoSuave, marginTop: 1 }}>
+                          {c.parcelas > 1
+                            ? `${c.parcelas}x de ${formatBRL(c.valorParcela ?? c.valor / c.parcelas)}`
+                            : "À vista"}
+                          {c.dataPrimeiroRecebimento && c.tipo !== "cartao_credito" && c.tipo !== "cartao_debito"
+                            ? ` · Venc. ${formatDate(c.dataPrimeiroRecebimento)}`
+                            : ""}
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: CORES.texto }}>
+                        {formatBRL(c.valor)}
                       </Text>
                     </View>
-                    <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: CORES.texto }}>
-                      {formatBRL(c.valor)}
-                    </Text>
+                    {/* Link de pagamento (link_externo) — clicável no PDF. */}
+                    {c.plataformaLink && c.tipo === "link_externo" && (
+                      <Link
+                        src={c.plataformaLink}
+                        style={{ fontSize: 7, color: cor, textDecoration: "underline", marginTop: 1, marginBottom: 3 }}
+                      >
+                        {c.plataformaLink}
+                      </Link>
+                    )}
                   </View>
                 ))}
                 <View style={styles.cobrancaTotal}>

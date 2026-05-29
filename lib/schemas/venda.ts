@@ -98,6 +98,7 @@ export const COBRANCA_TIPOS = [
   "transferencia",
   "dinheiro",
   "faturado",
+  "link_externo",
   "outro",
 ] as const
 export type CobrancaTipo = (typeof COBRANCA_TIPOS)[number]
@@ -110,6 +111,7 @@ export const COBRANCA_TIPO_LABEL: Record<CobrancaTipo, string> = {
   transferencia: "Transferência",
   dinheiro: "Dinheiro",
   faturado: "Faturado",
+  link_externo: "Link externo (PagSeguro/Cielo)",
   outro: "Outro",
 }
 
@@ -118,7 +120,7 @@ export const cobrancaItemSchema = z.object({
   valor_total: z.number().min(0),
   num_parcelas: z.number().int().min(1).default(1),
   valor_parcela: z.number().min(0).nullable().optional(),
-  plataforma_link: z.string().trim().max(120).nullable().optional(),
+  plataforma_link: z.string().trim().max(500).nullable().optional(),
   taxa_adquirente: z.number().min(0).nullable().optional(),
   valor_liquido: z.number().min(0).nullable().optional(),
   data_inicio: z.string().nullable().optional(),

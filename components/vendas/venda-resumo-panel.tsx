@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { CheckCircle, AlertTriangle, ChevronDown, FileDown } from "lucide-react"
+import { CheckCircle, AlertTriangle, ChevronDown, ExternalLink, FileDown } from "lucide-react"
 import { formatBRL } from "@/lib/utils/sum-parser"
 import { COBRANCA_TIPO_LABEL, PGTO_FORMA_LABEL } from "@/lib/schemas/venda"
 import type { VendaDetalhes } from "@/app/(dashboard)/vendas/actions"
@@ -63,6 +63,7 @@ function ProdutoRow({ p }: { p: Produto }) {
     !!p.localizadorFornecedor ||
     !!p.destino ||
     !!p.dataEmissao ||
+    p.ravExtraCliente > 0 ||
     p.ravExtraFornecedor > 0 ||
     !!p.pgtoForma
 
@@ -164,6 +165,15 @@ function ProdutoRow({ p }: { p: Produto }) {
                   <MiniStat
                     label="Loc. Fornecedor"
                     value={p.localizadorFornecedor}
+                  />
+                )}
+
+                {/* RAV extra cliente */}
+                {p.ravExtraCliente > 0 && (
+                  <MiniStat
+                    label="RAV Extra Cliente"
+                    value={formatBRL(p.ravExtraCliente)}
+                    accent="bright"
                   />
                 )}
 
@@ -281,13 +291,17 @@ export function VendaResumoPanel({ detalhes: d, mostraComissao, vendaId, mostraR
   const totalVenda = d.produtos.reduce((a, p) => a + p.valorVenda, 0)
   const totalCusto = d.produtos.reduce((a, p) => a + p.valorCusto, 0)
   const totalComissao = d.produtos.reduce((a, p) => a + p.comissao, 0)
-  // RAV total = RAV base (venda - custo) + RAV extra fornecedor
+  // RAV total = RAV base (venda - custo) + RAV Extra Cliente + RAV Extra Fornecedor
   const totalRavBase = d.produtos.reduce((a, p) => a + p.rav, 0)
+  const totalRavExtraCliente = d.produtos.reduce(
+    (a, p) => a + p.ravExtraCliente,
+    0,
+  )
   const totalRavExtraFornecedor = d.produtos.reduce(
     (a, p) => a + p.ravExtraFornecedor,
     0,
   )
-  const totalRav = totalRavBase + totalRavExtraFornecedor
+  const totalRav = totalRavBase + totalRavExtraCliente + totalRavExtraFornecedor
   const totalCobranca = d.cobranca.reduce((a, c) => a + c.valor, 0)
   const margemRav =
     totalVenda > 0 ? ((totalRav / totalVenda) * 100).toFixed(1) : null
@@ -439,13 +453,14 @@ export function VendaResumoPanel({ detalhes: d, mostraComissao, vendaId, mostraR
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-white/55">RAV bruto</span>
+                <span className="text-white/55">RAV total</span>
                 <span className="tabular-nums text-white/85">
                   {formatBRL(totalRav) || "—"}
                 </span>
               </div>
-              {/* Breakdown do RAV — só mostra se RAV extra fornecedor > 0 */}
-              {totalRavExtraFornecedor > 0 && (
+              {/* Breakdown do RAV — só mostra se algum extra (cliente ou
+                  fornecedor) > 0. Inclui as 3 linhas existentes (só as > 0). */}
+              {(totalRavExtraCliente > 0 || totalRavExtraFornecedor > 0) && (
                 <div className="space-y-1 border-l border-white/[0.05] pl-3">
                   {totalRavBase > 0 && (
                     <div className="flex items-center justify-between text-[11px]">
@@ -455,12 +470,22 @@ export function VendaResumoPanel({ detalhes: d, mostraComissao, vendaId, mostraR
                       </span>
                     </div>
                   )}
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-white/40">RAV extra fornecedor</span>
-                    <span className="tabular-nums text-white/55">
-                      {formatBRL(totalRavExtraFornecedor)}
-                    </span>
-                  </div>
+                  {totalRavExtraCliente > 0 && (
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-white/40">RAV extra cliente</span>
+                      <span className="tabular-nums text-white/55">
+                        {formatBRL(totalRavExtraCliente)}
+                      </span>
+                    </div>
+                  )}
+                  {totalRavExtraFornecedor > 0 && (
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-white/40">RAV extra fornecedor</span>
+                      <span className="tabular-nums text-white/55">
+                        {formatBRL(totalRavExtraFornecedor)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="flex items-center justify-between text-sm">
@@ -698,10 +723,25 @@ function CobrancaItemCard({ item: c }: { item: CobrancaItem }) {
           <MiniStat label="Destino" value={c.fornecedorDestino} />
         )}
 
-        {/* Plataforma */}
-        {c.plataformaLink && (
+        {/* Plataforma / link de pagamento — link_externo vira âncora clicável */}
+        {c.plataformaLink && c.tipo === "link_externo" ? (
+          <div className="col-span-2 sm:col-span-3">
+            <p className="text-[10px] uppercase tracking-wider text-white/40">
+              Link de pagamento
+            </p>
+            <a
+              href={c.plataformaLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-0.5 inline-flex max-w-full items-center gap-1 break-all text-[12px] text-nexus-bright hover:text-nexus-bright-soft hover:underline"
+            >
+              <ExternalLink className="h-3 w-3 shrink-0" />
+              <span className="truncate">{c.plataformaLink}</span>
+            </a>
+          </div>
+        ) : c.plataformaLink ? (
           <MiniStat label="Plataforma / Link" value={c.plataformaLink} />
-        )}
+        ) : null}
 
         {/* Taxa e líquido */}
         {c.taxaAdquirente != null && c.taxaAdquirente > 0 && (

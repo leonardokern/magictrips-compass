@@ -1015,6 +1015,10 @@ export type VendaParaEditar = {
     produtos: {
       id: string
       tipo_produto_id: string
+      /** UUID do fornecedor cadastrado, "outro" quando texto livre, "" quando vazio. */
+      fornecedor_id: string
+      /** Nome do fornecedor quando `fornecedor_id === "outro"`. */
+      fornecedor_outro_nome: string
       valor_venda_str: string; valor_custo_str: string; rav_str: string
       rav_extra_cliente_str: string; rav_extra_fornecedor_str: string
       comissao_vendedor_str: string
@@ -1073,7 +1077,7 @@ export async function getVendaParaEditar(
         .maybeSingle(),
       supabase
         .from("venda_produtos")
-        .select("tipo_produto_id, valor_venda, valor_custo, rav, rav_extra_cliente, rav_extra_fornecedor, comissao_vendedor, valores_extras, data_emissao, pgto_modo, pgto_forma, pgto_cartao_id, pgto_valor_total, pgto_entrada, pgto_num_parcelas, pgto_valor_parcela, pgto_data_debito, data_inicio_viagem, data_fim_viagem")
+        .select("tipo_produto_id, fornecedor_id, fornecedor_nome, valor_venda, valor_custo, rav, rav_extra_cliente, rav_extra_fornecedor, comissao_vendedor, valores_extras, data_emissao, pgto_modo, pgto_forma, pgto_cartao_id, pgto_valor_total, pgto_entrada, pgto_num_parcelas, pgto_valor_parcela, pgto_data_debito, data_inicio_viagem, data_fim_viagem")
         .eq("venda_id", id)
         .order("ordem"),
       supabase
@@ -1120,6 +1124,16 @@ export async function getVendaParaEditar(
     produtos: (produtos ?? []).map((p) => ({
       id:                      crypto.randomUUID(),
       tipo_produto_id:          p.tipo_produto_id ?? "",
+      // Fornecedor: se tem `fornecedor_id` é cadastrado (junção). Se tem
+      // só `fornecedor_nome` é "outro" (texto livre). Sem nenhum dos dois → vazio.
+      fornecedor_id:
+        p.fornecedor_id != null
+          ? String(p.fornecedor_id)
+          : (p.fornecedor_nome ?? "").trim()
+            ? "outro"
+            : "",
+      fornecedor_outro_nome:
+        p.fornecedor_id == null ? (p.fornecedor_nome ?? "") : "",
       valor_venda_str:          numStr(p.valor_venda),
       valor_custo_str:          numStr(p.valor_custo),
       rav_str:                  numStr(p.rav),

@@ -444,7 +444,13 @@ function VendasSection({
                       </span>
                     </TableCell>
                     <TableCell>
+                      {/* key explícita garante que mudanças de status entre
+                          render e re-render (ex: aprovação) forcem unmount
+                          completo do componente — evita estado residual
+                          (detalhes cached, viewOpen, etc.) vazando entre
+                          vendas distintas se a posição da linha mudar. */}
                       <VendaRowActions
+                        key={`${v.id}-${v.status}`}
                         venda={{
                           id: v.id,
                           identificador: v.identificador,
@@ -526,6 +532,7 @@ function VendasSection({
                 )}
                 <div className="mt-3 flex justify-end border-t border-white/[0.04] pt-3">
                   <VendaRowActions
+                    key={`${v.id}-${v.status}`}
                     venda={{
                       id: v.id,
                       identificador: v.identificador,

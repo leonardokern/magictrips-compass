@@ -2,6 +2,7 @@ import React from "react"
 import {
   Document,
   Image,
+  Link,
   Page,
   View,
   Text,
@@ -407,7 +408,7 @@ export function RelatorioPDF({ venda: v, logoPath }: { venda: VendaParaPDF; logo
               <Text style={[s.kpiValue, { color: CORES.texto }]}>{formatBRL(totalCusto)}</Text>
             </View>
             <View style={[s.kpiCard, { backgroundColor: "#ecfdf5", borderWidth: 0.5, borderColor: "#a7f3d0" }]}>
-              <Text style={[s.kpiLabel, { color: "#065f46" }]}>RAV bruto</Text>
+              <Text style={[s.kpiLabel, { color: "#065f46" }]}>RAV total</Text>
               <Text style={[s.kpiValue, { color: "#065f46" }]}>{formatBRL(totalRav)}</Text>
             </View>
             <View style={[s.kpiCard, { backgroundColor: "#fffbeb", borderWidth: 0.5, borderColor: "#fde68a" }]}>
@@ -517,7 +518,7 @@ export function RelatorioPDF({ venda: v, logoPath }: { venda: VendaParaPDF; logo
                   <View style={s.fieldGrid}>
                     <Campo label="Valor venda" value={formatBRL(p.valorVenda)} bold width="25%" />
                     <Campo label="Valor custo" value={formatBRL(p.valorCusto)} width="25%" />
-                    <Campo label="RAV bruto" value={formatBRL(p.rav)} width="25%" />
+                    <Campo label="RAV" value={formatBRL(p.rav)} width="25%" />
                     <Campo
                       label="Margem RAV"
                       value={p.valorVenda > 0 ? `${((p.rav / p.valorVenda) * 100).toFixed(1)}%` : "—"}
@@ -596,7 +597,7 @@ export function RelatorioPDF({ venda: v, logoPath }: { venda: VendaParaPDF; logo
                       {c.fornecedorDestino && (
                         <Campo label="Destino" value={c.fornecedorDestino} width="25%" />
                       )}
-                      {c.plataformaLink && (
+                      {c.plataformaLink && c.tipo !== "link_externo" && (
                         <Campo label="Plataforma / Link" value={c.plataformaLink} width="33.33%" />
                       )}
                       {c.taxaAdquirente != null && c.taxaAdquirente > 0 && (
@@ -606,6 +607,21 @@ export function RelatorioPDF({ venda: v, logoPath }: { venda: VendaParaPDF; logo
                         <Campo label="Valor líquido" value={formatBRL(c.valorLiquido)} bold width="25%" />
                       )}
                     </View>
+                    {/* Link de pagamento (link_externo) — fora da grid pra
+                        ocupar a linha inteira e ser clicável. */}
+                    {c.plataformaLink && c.tipo === "link_externo" && (
+                      <View style={{ marginTop: 4 }}>
+                        <Text style={{ fontSize: 6.5, color: CORES.textoSuave, marginBottom: 1 }}>
+                          LINK DE PAGAMENTO
+                        </Text>
+                        <Link
+                          src={c.plataformaLink}
+                          style={{ fontSize: 7.5, color: "#1498D5", textDecoration: "underline" }}
+                        >
+                          {c.plataformaLink}
+                        </Link>
+                      </View>
+                    )}
                     {c.observacoes && (
                       <Text style={{ fontSize: 7, color: CORES.textoSuave, marginTop: 3 }}>
                         Obs: {c.observacoes}

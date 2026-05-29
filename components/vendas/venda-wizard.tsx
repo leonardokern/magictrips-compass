@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CreditCard,
+  ExternalLink,
   Minus,
   Plus,
   Save,
@@ -543,15 +544,32 @@ export function VendaWizard(props: Props) {
     return e
   }
 
-  /** Se todos os produtos são `cartao_cliente`, o cliente paga direto ao
-   *  fornecedor e a Magic não emite cobrança nenhuma. O Step 3 vira
-   *  informativo apenas — nada a validar. */
+  /** Se todos os produtos são `cartao_cliente`, o Step 3 fica restrito a
+   *  Faturado ou Link Externo — o cliente paga via cartão e a Magic só
+   *  registra o canal de cobrança usado. */
   const todosCartaoCliente =
     produtos.length > 0 && produtos.every((p) => p.pgto_forma === "cartao_cliente")
 
+  // Quando o usuário entra no modo restrito (todos cartão cliente), itens
+  // já preenchidos com tipos não-permitidos (pix, boleto, cartao_credito,
+  // outro…) são migrados pra `link_externo` — assim o Select volta a ter
+  // um valor válido em vez de ficar vazio.
+  useEffect(() => {
+    if (!todosCartaoCliente) return
+    const tiposPermitidos: CobrancaTipo[] = ["faturado", "link_externo"]
+    setCobrancaItens((prev) => {
+      let mudou = false
+      const next = prev.map((it) => {
+        if (tiposPermitidos.includes(it.tipo)) return it
+        mudou = true
+        return { ...it, tipo: "link_externo" as CobrancaTipo, num_parcelas: 1 }
+      })
+      return mudou ? next : prev
+    })
+  }, [todosCartaoCliente])
+
   function validarStep3(): Record<string, string> {
     const e: Record<string, string> = {}
-    if (todosCartaoCliente) return e
     if (cobrancaItens.length === 0)
       e.cobranca_itens = "Adicione ao menos uma forma de cobrança."
     cobrancaItens.forEach((it, i) => {
@@ -559,6 +577,8 @@ export function VendaWizard(props: Props) {
       if (!v || v <= 0) e[`cobranca_${i}_valor`] = "Valor inválido."
       if (it.tipo === "outro" && !it.outro_descricao.trim())
         e[`cobranca_${i}_outro_descricao`] = "Informe a forma de pagamento."
+      if (it.tipo === "link_externo" && !it.plataforma_link.trim())
+        e[`cobranca_${i}_link`] = "Cole o link de pagamento gerado."
     })
     return e
   }
@@ -597,17 +617,14 @@ export function VendaWizard(props: Props) {
       return
     }
     setErrors({})
-    // Passo 3 → 4: avisa se houver valor em aberto. Pula a checagem quando
-    // todos os produtos são cartão cliente (não há cobrança a comparar).
+    // Passo 3 → 4: avisa se houver valor em aberto entre cobrança e venda.
     if (step === 3) {
-      if (!todosCartaoCliente) {
-        const totalCobrado = cobrancaItens.reduce(
-          (acc, it) => acc + (parseValorComSoma(it.valor_total_str) || 0), 0,
-        )
-        if (Math.abs(totalCobrado - totalVenda) >= 0.01) {
-          setConfirmValorAberto(true)
-          return
-        }
+      const totalCobrado = cobrancaItens.reduce(
+        (acc, it) => acc + (parseValorComSoma(it.valor_total_str) || 0), 0,
+      )
+      if (Math.abs(totalCobrado - totalVenda) >= 0.01) {
+        setConfirmValorAberto(true)
+        return
       }
       sincronizarPassageiros()
     }
@@ -643,7 +660,7 @@ export function VendaWizard(props: Props) {
       return
     }
     setErrors({})
-    if (step === 3 && !todosCartaoCliente) {
+    if (step === 3) {
       const totalCobrado = cobrancaItens.reduce(
         (acc, it) => acc + (parseValorComSoma(it.valor_total_str) || 0), 0,
       )
@@ -701,7 +718,10 @@ export function VendaWizard(props: Props) {
       }
       toast.success("Venda enviada para validação.")
       props.onSuccessClose?.()
-      router.refresh()
+      // Volta pra lista de vendas — alinhado com o fluxo de criação:
+      // depois de mandar pra validação o agente sai do modal e vê a venda
+      // saindo de "Precisa de revisão" pra "Aguardando aprovação".
+      router.push("/vendas")
     })
   }
 
@@ -874,7 +894,9 @@ export function VendaWizard(props: Props) {
       }
       toast.success("Venda enviada para aprovação.")
       props.onSuccessClose?.()
-      router.push(`/vendas/${r.data?.id}`)
+      // Volta pra lista de vendas — o agente vê sua nova venda em
+      // "Aguardando aprovação" e segue o dia. (Antes ia pro detalhe.)
+      router.push("/vendas")
     })
   }
 
@@ -1104,38 +1126,15 @@ export function VendaWizard(props: Props) {
         )}
 
         {step === 3 && (
-          todosCartaoCliente ? (
-            <div className="rounded-xl border border-nexus-bright/20 bg-nexus-bright/[0.04] p-6">
-              <div className="flex items-start gap-3">
-                <CreditCard className="mt-0.5 h-5 w-5 shrink-0 text-nexus-bright" />
-                <div className="space-y-1.5 text-sm leading-relaxed text-white/75">
-                  <p className="font-medium text-white">
-                    Cobrança dispensada — cartão do cliente
-                  </p>
-                  <p>
-                    Todos os produtos desta venda foram registrados com forma de
-                    pagamento <strong className="text-white">Cartão Cliente</strong>.
-                    O fornecedor enviará o link de pagamento diretamente ao
-                    cliente e a Magic receberá apenas a comissão.
-                  </p>
-                  <p className="text-white/55">
-                    Nada precisa ser preenchido neste passo. Clique em{" "}
-                    <strong className="text-white/85">Continuar</strong> para
-                    seguir aos passageiros.
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <Step3Cobranca
-              itens={cobrancaItens}
-              setItens={setCobrancaItens}
-              obs={cobrancaObs}
-              setObs={setCobrancaObs}
-              totalVenda={totalVenda}
-              errors={errors}
-            />
-          )
+          <Step3Cobranca
+            itens={cobrancaItens}
+            setItens={setCobrancaItens}
+            obs={cobrancaObs}
+            setObs={setCobrancaObs}
+            totalVenda={totalVenda}
+            errors={errors}
+            restritoCartaoCliente={todosCartaoCliente}
+          />
         )}
 
         {step === 4 && (
@@ -1205,6 +1204,9 @@ export function VendaWizard(props: Props) {
                   ? parseValorComSoma(p.comissao_vendedor_str)
                   : 0,
                 rav: p.rav_str ? parseValorComSoma(p.rav_str) : 0,
+                ravExtraCliente: p.rav_extra_cliente_str
+                  ? parseValorComSoma(p.rav_extra_cliente_str)
+                  : 0,
                 ravExtraFornecedor: p.rav_extra_fornecedor_str
                   ? parseValorComSoma(p.rav_extra_fornecedor_str)
                   : 0,
@@ -1215,6 +1217,7 @@ export function VendaWizard(props: Props) {
               tipo: COBRANCA_TIPO_LABEL[it.tipo],
               valor: parseValorComSoma(it.valor_total_str),
               parcelas: it.num_parcelas,
+              link: it.tipo === "link_externo" ? it.plataforma_link.trim() : null,
             }))}
             passageiros={passageiros.map((p) => ({
               nome: p.nome,
@@ -1231,8 +1234,10 @@ export function VendaWizard(props: Props) {
         )}
       </div>
 
-      {/* Aviso de valor em aberto — só no passo 3 e quando há cobrança real */}
-      {step === 3 && !todosCartaoCliente && (() => {
+      {/* Aviso de valor em aberto — sempre no passo 3 (vale também no modo
+          restrito cartão cliente, onde Faturado/Link Externo precisam fechar
+          o total da venda). */}
+      {step === 3 && (() => {
         const totalCobrado = cobrancaItens.reduce(
           (acc, it) => acc + (parseValorComSoma(it.valor_total_str) || 0), 0,
         )
@@ -1886,8 +1891,24 @@ function Step2Produtos(props: {
     return raw.replace(/[^0-9.,+ ]/g, "")
   }
 
+  /** Recalcula o string de comissão do vendedor baseado em RAV + RAV Extra
+   *  Cliente, multiplicado pelo % do agente. RAV Extra Fornecedor NÃO entra na
+   *  base — é receita exclusiva da agência. Retorna o string atual do prev
+   *  quando não há % definido (regra sobrescrita pelo Admin no aprovo). */
+  function recomputarComissao(ravStr: string, ravExtraClienteStr: string): string {
+    if (props.comissaoPercentual == null) return ""
+    const rav = parseValorComSoma(ravStr)
+    const ravExtraCliente = parseValorComSoma(ravExtraClienteStr)
+    const base = (Number.isFinite(rav) ? rav : 0) +
+      (Number.isFinite(ravExtraCliente) ? ravExtraCliente : 0)
+    if (base <= 0) return ""
+    const comissao = (base * props.comissaoPercentual) / 100
+    return comissao.toFixed(2).replace(".", ",")
+  }
+
   /** Quando venda ou custo mudam, recalcula RAV = venda - custo automaticamente.
-   *  Se o agente tem percentual de comissão definido, auto-preenche "Comissão vendedor" = RAV × %. */
+   *  Se o agente tem percentual de comissão definido, auto-preenche
+   *  "Comissão vendedor" = (RAV + RAV Extra Cliente) × %. */
   function patchValor(
     id: string,
     key: "valor_venda_str" | "valor_custo_str",
@@ -1907,17 +1928,10 @@ function Step2Produtos(props: {
       const pgtoTotalStr = pgtoTotal > 0
         ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(pgtoTotal)
         : ""
-      // Auto-calcular comissão: RAV × percentual do agente
-      let comissaoStr = prev.comissao_vendedor_str
-      if (props.comissaoPercentual != null) {
-        const rav = Number.isFinite(diff) ? diff : 0
-        if (rav > 0) {
-          const comissao = (rav * props.comissaoPercentual) / 100
-          comissaoStr = comissao.toFixed(2).replace(".", ",")
-        } else {
-          comissaoStr = ""
-        }
-      }
+      // Auto-calcular comissão usando o novo RAV + RAV Extra Cliente existente
+      const comissaoStr = props.comissaoPercentual != null
+        ? recomputarComissao(ravStr, prev.rav_extra_cliente_str)
+        : prev.comissao_vendedor_str
       return { [key]: value, rav_str: ravStr, pgto_valor_total_str: pgtoTotalStr, comissao_vendedor_str: comissaoStr }
     })
   }
@@ -2379,56 +2393,88 @@ function Step2Produtos(props: {
               <p className="mb-2.5 text-[11px] uppercase tracking-wider text-white/40">
                 Valores
               </p>
-              {/* Linha única: Venda | Custo | RAV (auto) | RAV extra fornecedor */}
-              <div className="grid grid-cols-12 gap-3">
-                <Field
-                  label="Valor de venda"
-                  error={props.errors[`produto_${i}_valor_venda`]}
-                  className="col-span-12 sm:col-span-3"
-                >
-                  <CurrencyInput
-                    value={p.valor_venda_str}
-                    onChange={(v) => patchValor(p.id, "valor_venda_str", v)}
-                  />
-                </Field>
+              {/* Linha 1: Venda (37,5%) + Custo (37,5%) + RAV (25%)
+                  Linha 2: RAV Extra Cliente (50%) + RAV Extra Fornecedor (50%) */}
+              <div className="space-y-3">
+                <div className="grid grid-cols-12 gap-3">
+                  {/* Subgrade Venda+Custo ocupa 9/12 (= 75%) e divide igual.
+                      Em mobile, cada um vira linha cheia. */}
+                  <div className="col-span-12 grid grid-cols-2 gap-3 sm:col-span-9">
+                    <Field
+                      label="Valor de venda"
+                      error={props.errors[`produto_${i}_valor_venda`]}
+                    >
+                      <CurrencyInput
+                        value={p.valor_venda_str}
+                        onChange={(v) => patchValor(p.id, "valor_venda_str", v)}
+                      />
+                    </Field>
 
-                <Field
-                  label="Valor de custo"
-                  error={props.errors[`produto_${i}_valor_custo`]}
-                  className="col-span-12 sm:col-span-3"
-                >
-                  <CurrencyInput
-                    value={p.valor_custo_str}
-                    onChange={(v) => patchValor(p.id, "valor_custo_str", v)}
-                  />
-                </Field>
+                    <Field
+                      label="Valor de custo"
+                      error={props.errors[`produto_${i}_valor_custo`]}
+                    >
+                      <CurrencyInput
+                        value={p.valor_custo_str}
+                        onChange={(v) => patchValor(p.id, "valor_custo_str", v)}
+                      />
+                    </Field>
+                  </div>
 
-                {/* RAV — auto-calculado em venda/custo, mas editável (o
-                    vendedor pode sobrescrever pra refletir "depends" manuais). */}
-                <Field
-                  label="RAV"
-                  className="col-span-12 sm:col-span-3"
-                >
-                  <CurrencyInput
-                    value={p.rav_str}
-                    onChange={(v) =>
-                      patch(p.id, () => ({ rav_str: v }))
-                    }
-                  />
-                </Field>
+                  {/* RAV — auto-calculado em venda/custo, mas editável (o
+                      vendedor pode sobrescrever pra refletir "depends" manuais). */}
+                  <Field
+                    label="RAV"
+                    className="col-span-12 sm:col-span-3"
+                  >
+                    <CurrencyInput
+                      value={p.rav_str}
+                      onChange={(v) =>
+                        patch(p.id, (prev) => ({
+                          rav_str: v,
+                          comissao_vendedor_str: recomputarComissao(
+                            v,
+                            prev.rav_extra_cliente_str,
+                          ),
+                        }))
+                      }
+                    />
+                  </Field>
+                </div>
 
-                <Field
-                  label="RAV extra (fornecedor)"
-                  className="col-span-12 sm:col-span-3"
-                >
-                  <CurrencyInput
-                    value={p.rav_extra_fornecedor_str}
-                    onChange={(v) =>
-                      patch(p.id, () => ({ rav_extra_fornecedor_str: v }))
-                    }
-                  />
-                </Field>
+                <div className="grid grid-cols-12 gap-3">
+                  {/* RAV Extra Cliente — taxa adicional cobrada do cliente.
+                      Entra na base de comissão do agente. */}
+                  <Field
+                    label="RAV extra (cliente)"
+                    className="col-span-12 sm:col-span-6"
+                  >
+                    <CurrencyInput
+                      value={p.rav_extra_cliente_str}
+                      onChange={(v) =>
+                        patch(p.id, (prev) => ({
+                          rav_extra_cliente_str: v,
+                          comissao_vendedor_str: recomputarComissao(
+                            prev.rav_str,
+                            v,
+                          ),
+                        }))
+                      }
+                    />
+                  </Field>
 
+                  <Field
+                    label="RAV extra (fornecedor)"
+                    className="col-span-12 sm:col-span-6"
+                  >
+                    <CurrencyInput
+                      value={p.rav_extra_fornecedor_str}
+                      onChange={(v) =>
+                        patch(p.id, () => ({ rav_extra_fornecedor_str: v }))
+                      }
+                    />
+                  </Field>
+                </div>
               </div>
             </div>
 
@@ -2652,9 +2698,18 @@ function Step3Cobranca(props: {
   setObs: (v: string) => void
   totalVenda: number
   errors: Record<string, string>
+  /** Quando true (todos os produtos têm pgto_forma = cartao_cliente),
+   *  o Select de Forma de pagamento fica restrito a "Faturado" e
+   *  "Link externo". No link externo, o campo de URL fica expandido. */
+  restritoCartaoCliente?: boolean
 }) {
   function adicionar() {
-    props.setItens((s) => [...s, novoItemCobranca()])
+    props.setItens((s) => [
+      ...s,
+      props.restritoCartaoCliente
+        ? { ...novoItemCobranca(), tipo: "link_externo" }
+        : novoItemCobranca(),
+    ])
   }
   function remover(idx: number) {
     props.setItens((s) => s.filter((_, i) => i !== idx))
@@ -2721,7 +2776,11 @@ function Step3Cobranca(props: {
           </div>
 
           {(() => {
-            const semParcelas = it.tipo === "outro"
+            const semParcelas =
+              it.tipo === "outro" ||
+              it.tipo === "faturado" ||
+              it.tipo === "link_externo"
+            const isLinkExterno = it.tipo === "link_externo"
             return (
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Forma de pagamento">
@@ -2730,7 +2789,9 @@ function Step3Cobranca(props: {
                 onValueChange={(v) =>
                   patch(i, {
                     tipo: v as CobrancaTipo,
-                    ...(v === "outro" ? { num_parcelas: 1 } : {}),
+                    ...(v === "outro" || v === "faturado" || v === "link_externo"
+                      ? { num_parcelas: 1 }
+                      : {}),
                   })
                 }
               >
@@ -2738,10 +2799,23 @@ function Step3Cobranca(props: {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pix">{COBRANCA_TIPO_LABEL["pix"]}</SelectItem>
-                  <SelectItem value="boleto">{COBRANCA_TIPO_LABEL["boleto"]}</SelectItem>
-                  <SelectItem value="cartao_credito">{COBRANCA_TIPO_LABEL["cartao_credito"]}</SelectItem>
-                  <SelectItem value="outro">{COBRANCA_TIPO_LABEL["outro"]}</SelectItem>
+                  {props.restritoCartaoCliente ? (
+                    <>
+                      <SelectItem value="faturado">
+                        {COBRANCA_TIPO_LABEL["faturado"]}
+                      </SelectItem>
+                      <SelectItem value="link_externo">
+                        {COBRANCA_TIPO_LABEL["link_externo"]}
+                      </SelectItem>
+                    </>
+                  ) : (
+                    <>
+                      <SelectItem value="pix">{COBRANCA_TIPO_LABEL["pix"]}</SelectItem>
+                      <SelectItem value="boleto">{COBRANCA_TIPO_LABEL["boleto"]}</SelectItem>
+                      <SelectItem value="cartao_credito">{COBRANCA_TIPO_LABEL["cartao_credito"]}</SelectItem>
+                      <SelectItem value="outro">{COBRANCA_TIPO_LABEL["outro"]}</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </Field>
@@ -2812,22 +2886,46 @@ function Step3Cobranca(props: {
               </>
             )}
 
-            <Field label={semParcelas ? "Data pagamento" : "Data primeiro recebimento"}>
-              <DateInput
-                value={it.data_primeiro_recebimento}
-                onChange={(iso) => patch(i, { data_primeiro_recebimento: iso })}
-              />
-            </Field>
+            {/* Faturado: ciclo mensal é gerado depois.
+                Link externo: futuro vai integrar com Cielo/PagSeguro pra
+                puxar o contas a receber automaticamente.
+                Ambos dispensam o campo de data agora. */}
+            {it.tipo !== "faturado" && it.tipo !== "link_externo" && (
+              <Field label={semParcelas ? "Data pagamento" : "Data primeiro recebimento"}>
+                <DateInput
+                  value={it.data_primeiro_recebimento}
+                  onChange={(iso) => patch(i, { data_primeiro_recebimento: iso })}
+                />
+              </Field>
+            )}
 
-            <Field label="Plataforma / link (opcional)">
-              <Input
-                value={it.plataforma_link}
-                onChange={(ev) =>
-                  patch(i, { plataforma_link: ev.target.value })
-                }
-                placeholder="PagSeguro, Cielo…"
-              />
-            </Field>
+            {/* Link externo ocupa 2/3 da linha pra dar espaço à URL */}
+            {isLinkExterno ? (
+              <Field
+                label="Link de pagamento (PagSeguro / Cielo)"
+                className="sm:col-span-2"
+                error={props.errors[`cobranca_${i}_link`]}
+              >
+                <Input
+                  value={it.plataforma_link}
+                  onChange={(ev) =>
+                    patch(i, { plataforma_link: ev.target.value })
+                  }
+                  placeholder="https://pag.ae/abc123 ou https://cielo.com.br/…"
+                  maxLength={500}
+                />
+              </Field>
+            ) : it.tipo !== "faturado" ? (
+              <Field label="Plataforma / link (opcional)">
+                <Input
+                  value={it.plataforma_link}
+                  onChange={(ev) =>
+                    patch(i, { plataforma_link: ev.target.value })
+                  }
+                  placeholder="PagSeguro, Cielo…"
+                />
+              </Field>
+            ) : null}
 
           </div>
             )
@@ -3000,6 +3098,7 @@ function ProdutosRevisao(props: {
     valorCusto: number
     comissao: number
     rav: number
+    ravExtraCliente: number
     ravExtraFornecedor: number
     camposExtras: { nome: string; valor: string }[]
   }[]
@@ -3040,6 +3139,7 @@ function ProdutosRevisao(props: {
             const aberto = abertos[i] ?? false
             const temDetalhes =
               p.camposExtras.length > 0 ||
+              p.ravExtraCliente > 0 ||
               p.ravExtraFornecedor > 0 ||
               !!p.fornecedorNome ||
               !!p.dataInicioViagem ||
@@ -3125,6 +3225,16 @@ function ProdutosRevisao(props: {
                             <span className="text-white/85">{c.valor}</span>
                           </div>
                         ))}
+                        {p.ravExtraCliente > 0 && (
+                          <div className="flex items-baseline gap-2 text-[12px]">
+                            <span className="text-white/40">
+                              RAV extra cliente:
+                            </span>
+                            <span className="tabular-nums text-nexus-bright">
+                              {formatBRL(p.ravExtraCliente)}
+                            </span>
+                          </div>
+                        )}
                         {p.ravExtraFornecedor > 0 && (
                           <div className="flex items-baseline gap-2 text-[12px]">
                             <span className="text-white/40">
@@ -3186,10 +3296,18 @@ function Step5Revisao(props: {
     valorCusto: number
     comissao: number
     rav: number
+    ravExtraCliente: number
     ravExtraFornecedor: number
     camposExtras: { nome: string; valor: string }[]
   }[]
-  cobranca: { tipo: string; valor: number; parcelas: number }[]
+  cobranca: {
+    tipo: string
+    valor: number
+    parcelas: number
+    /** Quando preenchido, mostra link clicável abaixo do item.
+     *  Hoje só é usado pelo tipo `link_externo` (PagSeguro/Cielo). */
+    link?: string | null
+  }[]
   passageiros: {
     nome: string
     cpf: string
@@ -3205,13 +3323,17 @@ function Step5Revisao(props: {
   const totalVenda = props.produtos.reduce((a, p) => a + p.valorVenda, 0)
   const totalCusto = props.produtos.reduce((a, p) => a + p.valorCusto, 0)
   const totalComissao = props.produtos.reduce((a, p) => a + p.comissao, 0)
-  // RAV total = RAV base (venda - custo) + RAV extra fornecedor
+  // RAV total = RAV base (venda - custo) + RAV Extra Cliente + RAV Extra Fornecedor
   const totalRavBase = props.produtos.reduce((a, p) => a + p.rav, 0)
+  const totalRavExtraCliente = props.produtos.reduce(
+    (a, p) => a + p.ravExtraCliente,
+    0,
+  )
   const totalRavExtraFornecedor = props.produtos.reduce(
     (a, p) => a + p.ravExtraFornecedor,
     0,
   )
-  const totalRav = totalRavBase + totalRavExtraFornecedor
+  const totalRav = totalRavBase + totalRavExtraCliente + totalRavExtraFornecedor
   const lucroBruto = totalVenda - totalCusto - totalComissao
   const totalCobranca = props.cobranca.reduce((a, c) => a + c.valor, 0)
 
@@ -3257,20 +3379,33 @@ function Step5Revisao(props: {
         </Bloco>
 
         <Bloco titulo="Cobrança do cliente">
-          <ul className="space-y-1.5 text-sm">
+          <ul className="space-y-2 text-sm">
             {props.cobranca.map((c, i) => (
-              <li key={i} className="flex items-center justify-between">
-                <span className="text-white/75">
-                  {c.tipo}
-                  {c.parcelas > 1 && (
-                    <span className="ml-2 text-xs text-white/45">
-                      {c.parcelas}x
-                    </span>
-                  )}
-                </span>
-                <span className="tabular-nums text-white">
-                  {formatBRL(c.valor)}
-                </span>
+              <li key={i} className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-white/75">
+                    {c.tipo}
+                    {c.parcelas > 1 && (
+                      <span className="ml-2 text-xs text-white/45">
+                        {c.parcelas}x
+                      </span>
+                    )}
+                  </span>
+                  <span className="tabular-nums text-white">
+                    {formatBRL(c.valor)}
+                  </span>
+                </div>
+                {c.link && (
+                  <a
+                    href={c.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex max-w-full items-center gap-1 break-all text-[11px] text-nexus-bright hover:text-nexus-bright-soft hover:underline"
+                  >
+                    <ExternalLink className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{c.link}</span>
+                  </a>
+                )}
               </li>
             ))}
             <li className="mt-2 flex items-center justify-between border-t border-white/[0.06] pt-2 font-medium">
@@ -3345,13 +3480,15 @@ function Step5Revisao(props: {
               </span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-white/55">RAV bruto</span>
+              <span className="text-white/55">RAV total</span>
               <span className="tabular-nums text-white/85">
                 {formatBRL(totalRav) || "—"}
               </span>
             </div>
-            {/* Breakdown do RAV — só mostra se RAV extra fornecedor > 0 */}
-            {totalRavExtraFornecedor > 0 && (
+            {/* Breakdown do RAV — só aparece se algum extra (cliente ou
+                fornecedor) tiver valor. Inclui as 3 linhas: RAV, RAV extra
+                cliente e RAV extra fornecedor, mostrando só as > 0. */}
+            {(totalRavExtraCliente > 0 || totalRavExtraFornecedor > 0) && (
               <div className="space-y-1 border-l border-white/[0.05] pl-3">
                 {totalRavBase > 0 && (
                   <div className="flex items-center justify-between text-[11px]">
@@ -3361,12 +3498,22 @@ function Step5Revisao(props: {
                     </span>
                   </div>
                 )}
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-white/40">RAV extra fornecedor</span>
-                  <span className="tabular-nums text-white/55">
-                    {formatBRL(totalRavExtraFornecedor)}
-                  </span>
-                </div>
+                {totalRavExtraCliente > 0 && (
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-white/40">RAV extra cliente</span>
+                    <span className="tabular-nums text-white/55">
+                      {formatBRL(totalRavExtraCliente)}
+                    </span>
+                  </div>
+                )}
+                {totalRavExtraFornecedor > 0 && (
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-white/40">RAV extra fornecedor</span>
+                    <span className="tabular-nums text-white/55">
+                      {formatBRL(totalRavExtraFornecedor)}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
             <div className="flex items-center justify-between text-sm">
